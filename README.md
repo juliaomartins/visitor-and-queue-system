@@ -82,11 +82,11 @@ Already registered ────────── straight to the scan ───
       <br><sub>A phone scans the ID card.</sub>
     </td>
     <td width="50%" valign="top">
-      <a href="evidence/juliao-martins-welcome.mp4" title="Play the video"><img src="evidence/juliao-martins-welcome-play.jpg" alt="Play video: a scan, then the welcome on the lobby screen"></a>
+      <a href="evidence/juliao-martins-welcome.mp4" title="Open the original MP4"><img src="evidence/juliao-martins-welcome.webp" alt="Video: a scan, then the welcome on the lobby screen"></a>
       <h3>IV. Welcome on screen</h3>
       The lobby screen greets the visitor by name and photograph in about
       200 ms, then waits for the next arrival.
-      <br><sub>Filmed at the event: scan, then welcome. <a href="evidence/juliao-martins-welcome.mp4">▶ Watch the clip</a></sub>
+      <br><sub>▶ Filmed at the event: scan, then welcome. <a href="evidence/juliao-martins-welcome.mp4">Original MP4</a></sub>
     </td>
   </tr>
 </table>
