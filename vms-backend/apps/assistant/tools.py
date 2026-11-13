@@ -29,7 +29,7 @@ from django.db import connections
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
-from . import retrieval
+from . import memory, retrieval
 
 Category = Literal["normal", "vip"]
 Result = Literal["valid", "invalid", "revoked", "duplicate"]
@@ -44,6 +44,7 @@ class Session:
 
     downloads: list[dict] = field(default_factory=list)
     tools_used: list[str] = field(default_factory=list)
+    remembered: list[str] = field(default_factory=list)
     origin_thread: int = field(default_factory=threading.get_ident)
 
 
@@ -138,6 +139,16 @@ class ScanLogArgs(DateRange):
     limit: int = Field(25, ge=1, le=retrieval.MAX_ROWS)
 
 
+class RememberArgs(BaseModel):
+    note: str = Field(
+        description=(
+            "The preference or term to keep, in a short sentence, e.g. "
+            "'Answer in Tetun' or 'Gate B means the side gate'. Never a fact "
+            "about a visitor."
+        )
+    )
+
+
 class DownloadArgs(DateRange):
     report: Literal["entrance_report", "visitor_list"] = Field(
         description=(
@@ -217,7 +228,24 @@ def _offer_download(session: Session):
 # --------------------------------------------------------------------------
 
 
-def build_tools(session: Session) -> list[StructuredTool]:
+def _remember(session: Session, owner):
+    """The one tool that writes. Built only on turns the admin asked for it."""
+
+    def remember(*, note: str) -> dict:
+        try:
+            saved = memory.save_note(owner, note)
+        except memory.MemoryRefused as refusal:
+            return {"error": str(refusal)}
+        if saved.text not in session.remembered:
+            session.remembered.append(saved.text)
+        return {"status": f"Remembered: {saved.text}"}
+
+    return remember
+
+
+def build_tools(
+    session: Session, *, owner=None, allow_memory: bool = False
+) -> list[StructuredTool]:
     specs = [
         (
             "event_overview",
@@ -271,6 +299,18 @@ def build_tools(session: Session) -> list[StructuredTool]:
             _offer_download(session),
         ),
     ]
+
+    if allow_memory and owner is not None:
+        specs.append(
+            (
+                "remember",
+                "Keep a preference or a term the admin asked you to remember, "
+                "for all their future conversations. Only when their latest "
+                "message asks you to remember something.",
+                RememberArgs,
+                _remember(session, owner),
+            )
+        )
 
     return [
         StructuredTool.from_function(
