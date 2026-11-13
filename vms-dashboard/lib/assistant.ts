@@ -6,9 +6,13 @@
  * never reaches the browser — anything shipped to this bundle is readable by
  * whoever opens dev tools.
  *
- * THE CONVERSATION LIVES IN MEMORY ONLY. Answers carry visitor names, and the
- * rule for this app is that visitor data never lands in localStorage. A reload
- * starts a fresh conversation; that is the price, and it is a small one.
+ * CONVERSATIONS ARE STORED BY THE BACKEND, PER ADMIN. The browser sends one
+ * message and the conversation id; the server loads the history itself and
+ * saves the question with its answer. Nothing from a conversation is put in
+ * localStorage or sessionStorage: answers carry visitor names, and the rule
+ * for this app is that visitor data never lands in browser storage. The open
+ * conversation's id is React state, so a reload starts at the panel's history
+ * rather than mid-conversation — which is one click away.
  *
  * Offered files are fetched from the EXISTING export views with the admin's
  * token — `downloadEntriesExport` and `downloadRoster` — so a file from the
@@ -20,81 +24,156 @@ import type { components } from "@vms/contracts";
 import { api } from "@/lib/api";
 import { ensureAccessToken } from "@/lib/auth";
 import { downloadRoster } from "@/lib/badges";
+import type { Locale, MessageKey } from "@/lib/locales";
 import { downloadEntriesExport, type ReportFormat } from "@/lib/reports";
 import { ApiError } from "@/lib/visitors";
 
 export type ChatResponse = components["schemas"]["ChatResponse"];
+export type ChatMessage = components["schemas"]["ChatMessage"];
+export type ConversationSummary = components["schemas"]["ConversationSummary"];
+export type ConversationDetail = components["schemas"]["ConversationDetail"];
+export type MemoryNote = components["schemas"]["MemoryNote"];
 export type DownloadOffer = components["schemas"]["DownloadOffer"];
-export type ChatRole = components["schemas"]["RoleEnum"];
 
-export type ChatTurn = {
-  id: number;
-  role: ChatRole;
-  content: string;
-  downloads?: DownloadOffer[];
+/** Mirrors `MAX_MESSAGE_CHARS` in apps/assistant/serializers.py. */
+export const MAX_CHARS = 4000;
+
+export const assistantKeys = {
+  status: ["assistant", "status"] as const,
+  conversations: ["assistant", "conversations"] as const,
+  conversation: (id: string) => ["assistant", "conversation", id] as const,
+  memories: ["assistant", "memories"] as const,
 };
 
-/** Mirrors `MAX_MESSAGES` / `MAX_MESSAGE_CHARS` in apps/assistant/serializers.py. */
-export const MAX_HISTORY = 20;
-export const MAX_CHARS = 4000;
+function keyed(key: MessageKey): never {
+  throw new ApiError(key, {}, key);
+}
+
+/**
+ * A 404 with a JSON `detail` is the server answering about a resource ("No such
+ * conversation"). A 404 without one is Django not knowing the route at all —
+ * the backend is running code older than this page, and a restart fixes it.
+ */
+function notFound(error: unknown): never {
+  const detail = (error as { detail?: unknown } | undefined)?.detail;
+  if (typeof detail === "string" && detail) throw new ApiError(detail);
+  keyed("assistant.error.stale");
+}
 
 export function useAssistantStatus(enabled: boolean) {
   return useQuery({
-    queryKey: ["assistant", "status"],
+    queryKey: assistantKeys.status,
     enabled,
     staleTime: 60_000,
     queryFn: async ({ signal }) => {
       const { data, error, response } = await api.GET("/api/v1/assistant/status", {
         signal,
       });
-      if (response.status === 404) {
-        throw new ApiError("assistant.error.stale", {}, "assistant.error.stale");
-      }
-      if (error || !data) {
-        throw new ApiError("assistant.error.network", {}, "assistant.error.network");
-      }
+      if (response.status === 404) notFound(error);
+      if (error || !data) keyed("assistant.error.network");
       return data;
     },
   });
 }
 
-/**
- * Ask the question at the end of `turns`.
- *
- * Only the text of earlier turns is sent, never the offered files: the backend
- * re-retrieves on a follow-up rather than trusting rows from three questions
- * ago, and a smaller payload is a cheaper one on the admin's key.
- */
-export async function askAssistant(turns: ChatTurn[]): Promise<ChatResponse> {
-  await ensureAccessToken();
+export function useConversations(enabled: boolean) {
+  return useQuery({
+    queryKey: assistantKeys.conversations,
+    enabled,
+    queryFn: async ({ signal }) => {
+      const { data, error, response } = await api.GET(
+        "/api/v1/assistant/conversations",
+        { signal },
+      );
+      if (response.status === 404) notFound(error);
+      if (error || !data) keyed("assistant.loadFailed");
+      return data;
+    },
+  });
+}
 
-  const messages = turns
-    .slice(-MAX_HISTORY)
-    .map(({ role, content }) => ({ role, content: content.slice(0, MAX_CHARS) }));
+export function useConversation(id: string | null) {
+  return useQuery({
+    queryKey: assistantKeys.conversation(id ?? "none"),
+    enabled: id !== null,
+    queryFn: async ({ signal }) => {
+      const { data, error, response } = await api.GET(
+        "/api/v1/assistant/conversations/{id}",
+        { params: { path: { id: id! } }, signal },
+      );
+      if (response.status === 404) notFound(error);
+      if (error || !data) keyed("assistant.loadFailed");
+      return data;
+    },
+  });
+}
+
+export function useMemories(enabled: boolean) {
+  return useQuery({
+    queryKey: assistantKeys.memories,
+    enabled,
+    queryFn: async ({ signal }) => {
+      const { data, error, response } = await api.GET("/api/v1/assistant/memories", {
+        signal,
+      });
+      if (response.status === 404) notFound(error);
+      if (error || !data) keyed("assistant.loadFailed");
+      return data;
+    },
+  });
+}
+
+/** Ask one question, in a conversation or (with `null`) a new one. */
+export async function askAssistant(input: {
+  conversation: string | null;
+  message: string;
+  locale: Locale;
+}): Promise<ChatResponse> {
+  // A request with a body cannot be replayed after a 401, so get a token first.
+  await ensureAccessToken();
 
   let result;
   try {
-    result = await api.POST("/api/v1/assistant/chat", { body: { messages } });
+    result = await api.POST("/api/v1/assistant/chat", {
+      body: {
+        conversation: input.conversation,
+        message: input.message.slice(0, MAX_CHARS),
+        locale: input.locale,
+      },
+    });
   } catch {
-    throw new ApiError("assistant.error.network", {}, "assistant.error.network");
+    keyed("assistant.error.network");
   }
 
   const { data, error, response } = result;
   if (data) return data;
+  if (response.status === 404) notFound(error);
+  if (response.status === 429) keyed("assistant.error.throttled");
 
-  if (response.status === 404) {
-    throw new ApiError("assistant.error.stale", {}, "assistant.error.stale");
-  }
-  if (response.status === 429) {
-    throw new ApiError("assistant.error.throttled", {}, "assistant.error.throttled");
-  }
   // 502/503 carry a sentence from the backend that says exactly what to fix
   // (no key, a rejected key, no internet). Shown as sent, like every other
   // backend `detail` in this app.
   const detail = (error as { detail?: unknown } | undefined)?.detail;
   if (typeof detail === "string" && detail) throw new ApiError(detail);
+  keyed("assistant.error.unexpected");
+}
 
-  throw new ApiError("assistant.error.unexpected", {}, "assistant.error.unexpected");
+export async function deleteConversation(id: string): Promise<void> {
+  await ensureAccessToken();
+  const { error, response } = await api.DELETE("/api/v1/assistant/conversations/{id}", {
+    params: { path: { id } },
+  });
+  if (response.status === 404) notFound(error);
+  if (!response.ok) keyed("assistant.error.unexpected");
+}
+
+export async function deleteMemory(id: string): Promise<void> {
+  await ensureAccessToken();
+  const { error, response } = await api.DELETE("/api/v1/assistant/memories/{id}", {
+    params: { path: { id } },
+  });
+  if (response.status === 404) notFound(error);
+  if (!response.ok) keyed("assistant.error.unexpected");
 }
 
 /** Fetch an offered file through the export view that already makes it. */
@@ -102,9 +181,7 @@ export async function downloadOffer(offer: DownloadOffer): Promise<void> {
   if (offer.report === "visitor_list") return downloadRoster();
 
   const { date_from, date_to, country, category, result } = offer.filters;
-  if (!date_from || !date_to) {
-    throw new ApiError("assistant.downloadFailed", {}, "assistant.downloadFailed");
-  }
+  if (!date_from || !date_to) keyed("assistant.downloadFailed");
 
   return downloadEntriesExport(
     {

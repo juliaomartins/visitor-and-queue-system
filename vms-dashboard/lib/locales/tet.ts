@@ -700,7 +700,23 @@ export const tet: Messages = {
   "assistant.title": "Husu kona-ba eventu",
   "assistant.subtitle": "Resposta mai husi rejistu inskrisaun no tama nian.",
   "assistant.close": "Taka",
-  "assistant.clear": "Konversa foun",
+  "assistant.newConversation": "Konversa foun",
+  "assistant.history": "Ist\u00f3ria",
+  "assistant.historyTitle": "Ita-nia konversa sira",
+  "assistant.historyEmpty":
+    "Seidauk iha konversa rai. Pergunta hotu ne\u2019eb\u00e9 ita husu rai iha ne\u2019e.",
+  "assistant.recent": "Konversa foin lalais",
+  "assistant.untitled": "La iha t\u00edtulu",
+  "assistant.backToChat": "Fila ba konversa",
+  "assistant.deleteConversation": "Hasai konversa",
+  "assistant.confirmDelete": "Hasai permanente",
+  "assistant.loadFailed": "La konsege karrega konversa.",
+  "assistant.memoriesTitle": "Hanoin hela",
+  "assistant.memoriesHint":
+    "Hatete \u201chanoin\u2026\u201d iha pergunta atu aumenta nota ida. Nota la rai dadus vizitante nian.",
+  "assistant.memoriesEmpty": "Seidauk hanoin buat ida.",
+  "assistant.forget": "Haluha",
+  "assistant.remembered": "Hanoin ona: {note}",
   "assistant.emptyLead":
     "Husu ho ita-nia liafuan rasik, ka hah\u00fa ho ida husi ne\u2019e.",
   "assistant.suggest.dayOne":

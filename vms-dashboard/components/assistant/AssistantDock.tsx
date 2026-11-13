@@ -1,20 +1,25 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AnswerText } from "@/components/assistant/AnswerText";
 import { AssistantMark } from "@/components/assistant/AssistantMark";
 import { useAssistant } from "@/components/assistant/assistant-context";
+import { HistoryView } from "@/components/assistant/HistoryView";
 import {
   askAssistant,
+  assistantKeys,
   downloadOffer,
   MAX_CHARS,
   useAssistantStatus,
-  type ChatTurn,
+  useConversation,
+  useConversations,
+  type ChatResponse,
+  type ConversationDetail,
   type DownloadOffer,
 } from "@/lib/assistant";
-import { useErrorText, useFormat, useT } from "@/lib/i18n";
+import { useErrorText, useFormat, useLocale, useT } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/locales";
 
 /**
@@ -34,9 +39,12 @@ import type { MessageKey } from "@/lib/locales";
  * sheet over the page. Non-modal either way: no backdrop, no focus trap;
  * Escape closes it and focus returns to the launcher.
  *
- * The panel stays mounted while closed (`hidden`), so closing it does not
- * throw the conversation away. It is React state and nothing else, so a
- * reload does -- see `lib/assistant.ts` for why that is the rule.
+ * CONVERSATIONS ARE THE SERVER'S. The panel holds only which conversation is
+ * open (`activeId`) and the question in flight (`pending`); the messages come
+ * from `useConversation`, and a successful answer is written into that cache
+ * rather than kept in a second copy here. A failed question stays on screen as
+ * `pending` with Retry -- the server saved nothing, so retrying cannot
+ * duplicate it.
  */
 
 const SUGGESTIONS: MessageKey[] = [
@@ -71,52 +79,62 @@ export function AssistantLauncher() {
 
 export function AssistantPanel() {
   const t = useT();
+  const locale = useLocale();
   const errorText = useErrorText();
+  const queryClient = useQueryClient();
   const { open, setOpen, launcherRef, panelId } = useAssistant();
 
-  const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [view, setView] = useState<"chat" | "history">("chat");
+  const [pending, setPending] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  // Notes saved on a turn, keyed by that answer's id. Shown only in this
+  // session: the server keeps the notes themselves, not which turn made them.
+  const [remembered, setRemembered] = useState<Record<number, string[]>>({});
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const logRef = useRef<HTMLDivElement | null>(null);
-  const nextId = useRef(1);
 
   const status = useAssistantStatus(open);
   const disabled = status.data?.enabled === false;
+  const conversation = useConversation(activeId);
+  const recent = useConversations(open && activeId === null && view === "chat");
 
   const ask = useMutation({
     mutationFn: askAssistant,
-    onSuccess: (reply) => {
-      setTurns((current) => [
-        ...current,
-        {
-          id: nextId.current++,
-          role: "assistant",
-          content: reply.answer,
-          downloads: reply.downloads,
-        },
-      ]);
+    onSuccess: (reply: ChatResponse) => {
+      const id = reply.conversation.id;
+      queryClient.setQueryData<ConversationDetail>(
+        assistantKeys.conversation(id),
+        (old) => ({
+          ...reply.conversation,
+          messages: [...(old?.messages ?? []), reply.question, reply.answer],
+        }),
+      );
+      setActiveId(id);
+      setPending(null);
+      if (reply.remembered.length) {
+        setRemembered((current) => ({ ...current, [reply.answer.id]: reply.remembered }));
+        queryClient.invalidateQueries({ queryKey: assistantKeys.memories });
+      }
+      queryClient.invalidateQueries({ queryKey: assistantKeys.conversations });
     },
   });
 
   const send = useCallback(
     (text: string) => {
-      const content = text.trim().slice(0, MAX_CHARS);
-      if (!content || ask.isPending || disabled) return;
+      const message = text.trim().slice(0, MAX_CHARS);
+      if (!message || ask.isPending || disabled) return;
 
-      const next: ChatTurn[] = [
-        ...turns,
-        { id: nextId.current++, role: "user", content },
-      ];
-      setTurns(next);
+      setPending(message);
       setDraft("");
-      ask.mutate(next);
+      ask.mutate({ conversation: activeId, message, locale });
     },
-    [ask, disabled, turns],
+    [activeId, ask, disabled, locale],
   );
 
   const retry = () => {
-    if (turns.at(-1)?.role === "user") ask.mutate(turns);
+    if (pending) ask.mutate({ conversation: activeId, message: pending, locale });
   };
 
   const close = useCallback(() => {
@@ -124,23 +142,35 @@ export function AssistantPanel() {
     launcherRef.current?.focus();
   }, [launcherRef, setOpen]);
 
-  const reset = () => {
+  const startNew = () => {
     ask.reset();
-    setTurns([]);
+    setPending(null);
+    setActiveId(null);
+    setView("chat");
     setDraft("");
-    inputRef.current?.focus();
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
+  const openConversation = (id: string) => {
+    ask.reset();
+    setPending(null);
+    setActiveId(id);
+    setView("chat");
+  };
+
+  const messages = conversation.data?.messages ?? [];
+  const showEmpty = activeId === null && pending === null && !disabled;
+
   useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open]);
+    if (open && view === "chat") inputRef.current?.focus();
+  }, [open, view]);
 
   // Keep the newest message in view. Instant rather than smooth: the reader is
   // waiting for this exact line, and a glide only delays it.
   useEffect(() => {
     const log = logRef.current;
-    if (log) log.scrollTop = log.scrollHeight;
-  }, [turns, ask.isPending, ask.isError, open]);
+    if (log && view === "chat") log.scrollTop = log.scrollHeight;
+  }, [messages.length, pending, ask.isPending, ask.isError, open, view]);
 
   // Grow the composer with its content, up to about five lines.
   useEffect(() => {
@@ -148,7 +178,7 @@ export function AssistantPanel() {
     if (!input) return;
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 132)}px`;
-  }, [draft, open]);
+  }, [draft, open, view]);
 
   return (
     <aside
@@ -180,16 +210,26 @@ export function AssistantPanel() {
             {t("assistant.subtitle")}
           </p>
         </div>
-        {turns.length > 0 ? (
+        <button
+          type="button"
+          className="assistant-icon-button"
+          aria-pressed={view === "history"}
+          onClick={() => setView(view === "history" ? "chat" : "history")}
+          title={t("assistant.history")}
+          aria-label={t("assistant.history")}
+        >
+          <IconHistory className="size-[1.1rem]" />
+        </button>
+        {activeId !== null || pending !== null ? (
           <button
             type="button"
             className="assistant-icon-button"
-            onClick={reset}
+            onClick={startNew}
             disabled={ask.isPending}
-            title={t("assistant.clear")}
-            aria-label={t("assistant.clear")}
+            title={t("assistant.newConversation")}
+            aria-label={t("assistant.newConversation")}
           >
-            <IconRefresh className="size-[1.05rem]" />
+            <IconPlus className="size-[1.1rem]" />
           </button>
         ) : null}
         <button
@@ -203,147 +243,230 @@ export function AssistantPanel() {
         </button>
       </header>
 
-      <div
-        ref={logRef}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4"
-        role="log"
-        aria-live="polite"
-        aria-busy={ask.isPending}
-      >
-        {disabled ? (
-          <p className="assistant-notice">{t("assistant.disabled")}</p>
-        ) : status.isError ? (
-          <p className="assistant-notice">{errorText(status.error)}</p>
-        ) : null}
-
-        {turns.length === 0 && !disabled ? (
-          <div>
-            <p className="text-sm leading-relaxed text-ink-2">
-              {t("assistant.emptyLead")}
-            </p>
-            <ul className="mt-3 flex flex-col items-start gap-2">
-              {SUGGESTIONS.map((key) => (
-                <li key={key}>
-                  <button
-                    type="button"
-                    className="assistant-suggestion"
-                    onClick={() => send(t(key))}
-                  >
-                    {t(key)}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        <ol className="flex flex-col gap-5">
-          {turns.map((turn) => (
-            <li key={turn.id}>
-              {turn.role === "user" ? (
-                <div className="flex justify-end">
-                  <p className="assistant-question">
-                    <span className="sr-only">{t("assistant.you")}: </span>
-                    {turn.content}
-                  </p>
-                </div>
-              ) : (
-                <div className="assistant-reply">
-                  {/* The mark heads a thread that runs the length of the
-                      reply, so a long answer with files under it still reads
-                      as one voice. */}
-                  <div className="assistant-thread" aria-hidden>
-                    <AssistantMark size={24} />
-                    <span />
-                  </div>
-                  <div className="assistant-answer">
-                    <span className="sr-only">{t("assistant.bot")}: </span>
-                    <AnswerText text={turn.content} />
-                    {turn.downloads?.length ? (
-                      <ul className="assistant-files">
-                        {turn.downloads.map((offer, index) => (
-                          <li key={index}>
-                            <FileRow offer={offer} />
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
-        </ol>
-
-        {ask.isPending ? (
-          <div className="assistant-reply mt-5" role="status">
-            <div className="assistant-thread assistant-thinking-mark" aria-hidden>
-              <AssistantMark size={24} />
-            </div>
-            <p className="assistant-thinking">{t("assistant.thinking")}</p>
-          </div>
-        ) : null}
-
-        {ask.isError ? (
-          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <p className="text-sm leading-relaxed text-revoked" role="alert">
-              {errorText(ask.error, "assistant.error.unexpected")}
-            </p>
-            <button type="button" className="assistant-text-button" onClick={retry}>
-              {t("assistant.retry")}
-            </button>
-          </div>
-        ) : null}
-      </div>
-
-      <form
-        className="border-t border-line px-3 pt-3 pb-2.5"
-        onSubmit={(event) => {
-          event.preventDefault();
-          send(draft);
-        }}
-      >
-        <div className="assistant-composer">
-          <textarea
-            ref={inputRef}
-            rows={1}
-            value={draft}
-            maxLength={MAX_CHARS}
-            disabled={disabled}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (
-                event.key === "Enter" &&
-                !event.shiftKey &&
-                !event.nativeEvent.isComposing
-              ) {
-                event.preventDefault();
-                send(draft);
+      {view === "history" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+          <HistoryView
+            activeId={activeId}
+            onOpen={openConversation}
+            onBack={() => setView("chat")}
+            onDeleted={(id) => {
+              if (id === activeId) {
+                setActiveId(null);
+                setPending(null);
               }
             }}
-            placeholder={t("assistant.placeholder")}
-            aria-label={t("assistant.placeholder")}
-            aria-describedby={`${panelId}-hint`}
-            className="assistant-input"
           />
-          <button
-            type="submit"
-            className="assistant-send"
-            disabled={!draft.trim() || ask.isPending || disabled}
-            aria-label={t("assistant.send")}
-            title={t("assistant.send")}
-          >
-            <IconSend className="size-[1.05rem]" />
-          </button>
         </div>
-        <p id={`${panelId}-hint`} className="sr-only">
-          {t("assistant.inputHint")}
-        </p>
-        <p className="mt-2 px-1 text-[0.7rem] leading-snug text-ink-3">
-          {t("assistant.privacy")}
-        </p>
-      </form>
+      ) : (
+        <>
+          <div
+            ref={logRef}
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4"
+            role="log"
+            aria-live="polite"
+            aria-busy={ask.isPending || conversation.isFetching}
+          >
+            {disabled ? (
+              <p className="assistant-notice">{t("assistant.disabled")}</p>
+            ) : status.isError ? (
+              <p className="assistant-notice">{errorText(status.error)}</p>
+            ) : null}
+
+            {showEmpty ? (
+              <div>
+                <p className="text-sm leading-relaxed text-ink-2">
+                  {t("assistant.emptyLead")}
+                </p>
+                <ul className="mt-3 flex flex-col items-start gap-2">
+                  {SUGGESTIONS.map((key) => (
+                    <li key={key}>
+                      <button
+                        type="button"
+                        className="assistant-suggestion"
+                        onClick={() => send(t(key))}
+                      >
+                        {t(key)}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+
+                {recent.data?.length ? (
+                  <div className="mt-6">
+                    <h3 className="assistant-section-title">{t("assistant.recent")}</h3>
+                    <ul className="mt-1.5 flex flex-col">
+                      {recent.data.slice(0, 3).map((item) => (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            className="assistant-recent"
+                            onClick={() => openConversation(item.id)}
+                          >
+                            {item.title || t("assistant.untitled")}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {activeId !== null && conversation.isPending ? (
+              <p className="text-sm text-ink-3" role="status">
+                {t("common.loading")}
+              </p>
+            ) : null}
+            {conversation.isError ? (
+              <p className="assistant-notice">
+                {errorText(conversation.error, "assistant.loadFailed")}
+              </p>
+            ) : null}
+
+            <ol className="flex flex-col gap-5">
+              {messages.map((message) => (
+                <li key={message.id}>
+                  {message.role === "user" ? (
+                    <Question text={message.content} />
+                  ) : (
+                    <Reply
+                      text={message.content}
+                      downloads={message.downloads}
+                      remembered={remembered[message.id]}
+                    />
+                  )}
+                </li>
+              ))}
+              {pending !== null ? (
+                <li>
+                  <Question text={pending} />
+                </li>
+              ) : null}
+            </ol>
+
+            {ask.isPending ? (
+              <div className="assistant-reply mt-5" role="status">
+                <div className="assistant-thread assistant-thinking-mark" aria-hidden>
+                  <AssistantMark size={24} />
+                </div>
+                <p className="assistant-thinking">{t("assistant.thinking")}</p>
+              </div>
+            ) : null}
+
+            {ask.isError ? (
+              <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <p className="text-sm leading-relaxed text-revoked" role="alert">
+                  {errorText(ask.error, "assistant.error.unexpected")}
+                </p>
+                <button type="button" className="assistant-text-button" onClick={retry}>
+                  {t("assistant.retry")}
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <form
+            className="border-t border-line px-3 pt-3 pb-2.5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              send(draft);
+            }}
+          >
+            <div className="assistant-composer">
+              <textarea
+                ref={inputRef}
+                rows={1}
+                value={draft}
+                maxLength={MAX_CHARS}
+                disabled={disabled}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    !event.shiftKey &&
+                    !event.nativeEvent.isComposing
+                  ) {
+                    event.preventDefault();
+                    send(draft);
+                  }
+                }}
+                placeholder={t("assistant.placeholder")}
+                aria-label={t("assistant.placeholder")}
+                aria-describedby={`${panelId}-hint`}
+                className="assistant-input"
+              />
+              <button
+                type="submit"
+                className="assistant-send"
+                disabled={!draft.trim() || ask.isPending || disabled}
+                aria-label={t("assistant.send")}
+                title={t("assistant.send")}
+              >
+                <IconSend className="size-[1.05rem]" />
+              </button>
+            </div>
+            <p id={`${panelId}-hint`} className="sr-only">
+              {t("assistant.inputHint")}
+            </p>
+            <p className="mt-2 px-1 text-[0.7rem] leading-snug text-ink-3">
+              {t("assistant.privacy")}
+            </p>
+          </form>
+        </>
+      )}
     </aside>
+  );
+}
+
+function Question({ text }: { text: string }) {
+  const t = useT();
+  return (
+    <div className="flex justify-end">
+      <p className="assistant-question">
+        <span className="sr-only">{t("assistant.you")}: </span>
+        {text}
+      </p>
+    </div>
+  );
+}
+
+function Reply({
+  text,
+  downloads,
+  remembered,
+}: {
+  text: string;
+  downloads: DownloadOffer[];
+  remembered?: string[];
+}) {
+  const t = useT();
+  return (
+    <div className="assistant-reply">
+      {/* The mark heads a thread that runs the length of the reply, so a long
+          answer with files under it still reads as one voice. */}
+      <div className="assistant-thread" aria-hidden>
+        <AssistantMark size={24} />
+        <span />
+      </div>
+      <div className="assistant-answer">
+        <span className="sr-only">{t("assistant.bot")}: </span>
+        <AnswerText text={text} />
+        {downloads.length ? (
+          <ul className="assistant-files">
+            {downloads.map((offer, index) => (
+              <li key={index}>
+                <FileRow offer={offer} />
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {remembered?.map((note) => (
+          <p key={note} className="assistant-remembered">
+            {t("assistant.remembered", { note })}
+          </p>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -443,11 +566,19 @@ function IconClose({ className }: { className?: string }) {
   );
 }
 
-function IconRefresh({ className }: { className?: string }) {
+function IconPlus({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconHistory({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
       <path
-        d="M19 12a7 7 0 1 1-2.05-4.95M19 4.5V8h-3.5"
+        d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v3.2h3.2M12 8.5V12l2.5 2"
         stroke="currentColor"
         strokeWidth="1.6"
         strokeLinecap="round"

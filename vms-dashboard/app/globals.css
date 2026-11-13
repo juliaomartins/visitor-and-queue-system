@@ -1075,3 +1075,123 @@ body {
     animation: none;
   }
 }
+
+/* -------------------------------------------------- assistant: history -- */
+
+.assistant-icon-button[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+/* Sentence case in the display face, like every other heading on the
+   console -- not a tracked-out capital label. */
+.assistant-section-title {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.assistant-history-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.assistant-history-open {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.6rem 0.25rem;
+  text-align: left;
+  border-radius: 0.5rem;
+}
+
+.assistant-history-open:hover .assistant-history-title {
+  color: var(--color-accent);
+}
+
+/* The conversation that is open in the chat view. */
+.assistant-history-open[aria-current="true"] .assistant-history-title {
+  color: var(--color-accent);
+}
+
+.assistant-history-title {
+  overflow: hidden;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assistant-history-meta {
+  font-size: 0.75rem;
+  color: var(--color-ink-3);
+}
+
+.assistant-history-delete {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.45rem;
+  border-radius: 0.55rem;
+  color: var(--color-ink-3);
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.assistant-history-delete:hover:not(:disabled) {
+  background: var(--color-revoked-soft);
+  color: var(--color-revoked);
+}
+
+/* Second click deletes for good, so the button says so in words and in red. */
+.assistant-history-delete.is-confirming {
+  background: var(--color-revoked);
+  color: #fff;
+}
+
+.assistant-memory-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.6rem;
+  background: var(--color-card-2);
+}
+
+.assistant-recent {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  padding: 0.4rem 0;
+  font-size: 0.8125rem;
+  color: var(--color-ink-2);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.assistant-recent:hover {
+  color: var(--color-accent);
+}
+
+/* Under an answer that saved a note: quiet confirmation, not a banner. */
+.assistant-remembered {
+  margin-top: 0.6rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--color-accent);
+  font-size: 0.75rem;
+  color: var(--color-ink-3);
+}

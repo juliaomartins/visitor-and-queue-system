@@ -719,7 +719,23 @@ export const pt: Messages = {
   "assistant.subtitle":
     "As respostas v\u00eam dos registos de inscri\u00e7\u00e3o e de entrada.",
   "assistant.close": "Fechar",
-  "assistant.clear": "Nova conversa",
+  "assistant.newConversation": "Nova conversa",
+  "assistant.history": "Hist\u00f3rico",
+  "assistant.historyTitle": "As suas conversas",
+  "assistant.historyEmpty":
+    "Ainda n\u00e3o h\u00e1 conversas guardadas. Cada pergunta que fizer fica aqui.",
+  "assistant.recent": "Conversas recentes",
+  "assistant.untitled": "Sem t\u00edtulo",
+  "assistant.backToChat": "Voltar \u00e0 conversa",
+  "assistant.deleteConversation": "Eliminar conversa",
+  "assistant.confirmDelete": "Eliminar definitivamente",
+  "assistant.loadFailed": "N\u00e3o foi poss\u00edvel carregar a conversa.",
+  "assistant.memoriesTitle": "Memorizado",
+  "assistant.memoriesHint":
+    "Diga \u00ablembra-te\u2026\u00bb numa pergunta para acrescentar uma nota. As notas nunca guardam dados de visitantes.",
+  "assistant.memoriesEmpty": "Ainda nada memorizado.",
+  "assistant.forget": "Esquecer",
+  "assistant.remembered": "Memorizado: {note}",
   "assistant.emptyLead":
     "Pergunte por palavras suas, ou comece por uma destas.",
   "assistant.suggest.dayOne": "Quantas pessoas chegaram a 2 de outubro?",

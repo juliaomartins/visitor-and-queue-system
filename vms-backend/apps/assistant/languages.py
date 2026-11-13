@@ -42,7 +42,7 @@ GLOSSARY: tuple[tuple[str, str, str], ...] = (
     ("valid", "válido", "válidu"),
     ("duplicate", "duplicado", "duplikadu"),
     ("revoked", "revogado", "revogadu"),
-    ("deactivated badge", "crachá desativado", "kartaun desativadu"),
+    ("deactivated badge", "crachá desativado", "kartaun dezativadu"),
     ("self-registered", "autoinscrito", "rejista an rasik"),
     ("walk-in desk", "balcão de inscrição", "meza rejistu"),
     ("download", "descarregar", "deskarega"),
