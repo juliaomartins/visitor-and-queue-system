@@ -118,7 +118,7 @@ class ChatTests(ApiTestCase):
         # The tool writes from LangGraph's worker thread; see test_agent.MemoryGateTests.
         with mock.patch("apps.assistant.agent._model", side_effect=remembers), \
              mock.patch("apps.assistant.tools.memory.save_note",
-                        side_effect=lambda owner, text: MemoryNote(owner=owner, text=text)):
+                        side_effect=lambda owner, text, **kw: MemoryNote(owner=owner, text=text)):
             r = self.post({"message": "Remember to be brief"})
 
         self.assertEqual(r.json()["remembered"], ["Be brief"])
@@ -185,3 +185,38 @@ class PermissionTests(TestCase):
         for method, url in (("get", CONVERSATIONS), ("get", MEMORIES), ("post", CHAT)):
             with self.subTest(url=url):
                 self.assertEqual(getattr(client, method)(url, {}, format="json").status_code, 403)
+
+
+class IdempotentChatTests(ApiTestCase):
+    """Review finding 4: a retry after the proxy gave up must not save twice."""
+
+    RID = "0d4e1f6a-2b3c-4d5e-8f90-a1b2c3d4e5f6"
+
+    def test_same_request_id_returns_stored_exchange_without_asking_again(self):
+        with answers("Three."):
+            first = self.post({"message": "How many arrived?", "request_id": self.RID})
+
+        with mock.patch("apps.assistant.agent._model", side_effect=AssertionError("asked twice")):
+            again = self.post({"message": "How many arrived?", "request_id": self.RID})
+
+        self.assertEqual(again.status_code, 200, again.content)
+        self.assertEqual(again.json()["answer"]["id"], first.json()["answer"]["id"])
+        self.assertEqual(ChatMessage.objects.count(), 2)
+        self.assertEqual(Conversation.objects.count(), 1)
+
+    def test_request_finishing_during_the_retry_still_saves_once(self):
+        # The first request lands while the retry is still waiting on OpenAI:
+        # the retry's insert must hit the unique id and return the stored pair.
+        def first_request_lands_meanwhile(messages, *, actor, locale="en", model=None):
+            services.record_exchange(
+                actor, None, question="How many arrived?", locale=locale,
+                result={"answer": "Three.", "downloads": [], "tools_used": []}, client_id=self.RID,
+            )
+            return {"answer": "Three, again.", "downloads": [], "tools_used": [], "remembered": []}
+
+        with mock.patch("apps.assistant.views.agent.ask", side_effect=first_request_lands_meanwhile):
+            r = self.post({"message": "How many arrived?", "request_id": self.RID})
+
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["answer"]["content"], "Three.")
+        self.assertEqual(ChatMessage.objects.count(), 2)

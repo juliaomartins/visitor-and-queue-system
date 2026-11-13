@@ -29,7 +29,10 @@ language competently.
    conversation of that admin.
    - **Why gated:** tool results contain visitor names typed by the public. A
      memory that any text could create would be a *persistent* prompt
-     injection. Gating on the admin's own words closes that.
+     injection. The trigger word only narrows that ("hanoin" also means
+     "think" in Tetun); what closes it is that a note must be built from the
+     admin's own words — ≥75% of its words appear in their message.
+     *(Corrected after the final review.)*
    - **No visitor data in notes:** a note containing any registered visitor's
      full name is refused. Notes are for preferences and terminology ("answer
      in Tetun", "Gate B means the side gate"), not facts about people — facts

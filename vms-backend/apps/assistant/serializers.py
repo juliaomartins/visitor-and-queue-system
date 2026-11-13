@@ -20,6 +20,9 @@ class ChatRequestSerializer(serializers.Serializer):
     conversation = serializers.UUIDField(required=False, allow_null=True)
     message = serializers.CharField(max_length=MAX_MESSAGE_CHARS, trim_whitespace=True)
     locale = serializers.ChoiceField(choices=Locale.choices, default=Locale.EN)
+    # The dashboard's id for this send, reused by Retry. A send that already
+    # landed is answered from the database instead of being asked again.
+    request_id = serializers.UUIDField(required=False, allow_null=True)
 
 
 class DownloadFiltersSerializer(serializers.Serializer):

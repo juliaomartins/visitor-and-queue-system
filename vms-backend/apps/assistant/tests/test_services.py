@@ -125,3 +125,53 @@ class RedactionTests(TestCase):
 
     def test_redact_ignores_names_under_3_chars(self):
         self.assertEqual(services.redact_visitor("Al"), 0)
+
+
+class RedactionReviewFixTests(TestCase):
+    """Review findings 1 and 2: titles, and whole words only."""
+
+    def test_purge_redacts_name_in_conversation_title(self):
+        admin = make_admin()
+        visitor = make_visitor("Ana Maria Sousa")
+        conv, _, _ = services.record_exchange(
+            admin, None, question="Did Ana Maria Sousa arrive?", locale="en", result=reply()
+        )
+
+        purge_visitor(visitor)
+
+        conv.refresh_from_db()
+        self.assertEqual(conv.title, f"Did {services.REDACTED} arrive?")
+
+    def test_redaction_replaces_whole_words_only(self):
+        admin = make_admin()
+        visitor = make_visitor("Test")
+        services.record_exchange(
+            admin, None, question="latest contest by Test, fastest test", locale="en",
+            result=reply("Test arrived; the latest scan was valid."),
+        )
+
+        purge_visitor(visitor)
+
+        question, answer = ChatMessage.objects.order_by("id")
+        self.assertEqual(question.content, f"latest contest by {services.REDACTED}, fastest {services.REDACTED}")
+        self.assertEqual(answer.content, f"{services.REDACTED} arrived; the latest scan was valid.")
+
+    def test_redaction_counts_only_rows_it_changed(self):
+        admin = make_admin()
+        services.record_exchange(admin, None, question="the latest figures", locale="en", result=reply())
+
+        self.assertEqual(services.redact_visitor("Test"), 0)
+
+
+class IdempotencyTests(TestCase):
+    """Review finding 4: the same request id saves once."""
+
+    def test_find_exchange_returns_the_stored_pair_for_its_owner_only(self):
+        admin = make_admin()
+        rid = "7b0f3c1e-9a43-4a7e-8a52-2d3c7e1f0a11"
+        conv, q, a = services.record_exchange(
+            admin, None, question="q", locale="en", result=reply("a"), client_id=rid
+        )
+
+        self.assertEqual(services.find_exchange(admin, rid), (conv, q, a))
+        self.assertIsNone(services.find_exchange(make_admin("other"), rid))

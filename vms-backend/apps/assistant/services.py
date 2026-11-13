@@ -51,14 +51,24 @@ def record_exchange(
     question: str,
     locale: str,
     result: dict,
+    client_id=None,
 ) -> tuple[Conversation, ChatMessage, ChatMessage]:
+    """Save a question and its answer together.
+
+    `client_id` is the dashboard's id for this send. It is unique, so a retry
+    of a request that already landed raises IntegrityError here instead of
+    saving a second copy -- the caller answers with `find_exchange`.
+    """
     if conversation is None:
         conversation = Conversation.objects.create(
             owner=owner, locale=locale, title=_title(question)
         )
 
     asked = ChatMessage.objects.create(
-        conversation=conversation, role=ChatRole.USER, content=question
+        conversation=conversation,
+        role=ChatRole.USER,
+        content=question,
+        client_id=client_id,
     )
     answered = ChatMessage.objects.create(
         conversation=conversation,
@@ -75,21 +85,62 @@ def record_exchange(
     return conversation, asked, answered
 
 
-def redact_visitor(full_name: str) -> int:
-    """Replace a purged visitor's full name in every saved message.
+def find_exchange(owner, client_id) -> tuple[Conversation, ChatMessage, ChatMessage] | None:
+    """The question saved under `client_id` and the answer saved with it --
+    only if this admin owns them. A request id must not reveal anyone else's."""
+    question = (
+        ChatMessage.objects.select_related("conversation")
+        .filter(client_id=client_id, role=ChatRole.USER, conversation__owner=owner)
+        .first()
+    )
+    if question is None:
+        return None
+    answer = (
+        question.conversation.messages.filter(id__gt=question.id, role=ChatRole.ASSISTANT)
+        .order_by("id")
+        .first()
+    )
+    if answer is None:
+        return None
+    return question.conversation, question, answer
 
-    Case-insensitive, whole name only. Names under three characters are
-    skipped: replacing "Al" everywhere would deface ordinary words in every
-    transcript, which is worse than the trace it removes.
+
+def redact_visitor(full_name: str) -> int:
+    """Replace a purged visitor's full name in every saved message and title.
+
+    Case-insensitive and WHOLE WORDS ONLY. A purge exists for test entries, so
+    the obvious name is "Test": matched as a substring it turned every
+    "latest" and "contest" in every admin's chats into "la[deleted visitor]",
+    permanently. The lookarounds use `\\w`, which is Unicode-aware, so an
+    accented letter counts as part of a word. Names under three characters
+    are skipped as well -- even whole-word, "Al" is too ordinary to erase.
+
+    Titles too: a conversation's title is its first question, which is where
+    "Did Ana Maria Sousa arrive?" most often lives.
+
+    Returns the number of rows actually changed.
     """
     name = full_name.strip()
     if len(name) < 3:
         return 0
 
-    pattern = re.compile(re.escape(name), re.IGNORECASE)
+    pattern = re.compile(rf"(?<!\w){re.escape(name)}(?!\w)", re.IGNORECASE)
     changed = 0
+
     for message in ChatMessage.objects.filter(content__icontains=name):
-        message.content = pattern.sub(REDACTED, message.content)
-        message.save(update_fields=["content"])
-        changed += 1
+        redacted = pattern.sub(REDACTED, message.content)
+        if redacted != message.content:
+            message.content = redacted
+            message.save(update_fields=["content"])
+            changed += 1
+
+    for conversation in Conversation.objects.filter(title__icontains=name):
+        redacted = pattern.sub(REDACTED, conversation.title)
+        if redacted != conversation.title:
+            # Truncation keeps the column's limit if the marker is longer
+            # than the name it replaced.
+            conversation.title = redacted[:120]
+            conversation.save(update_fields=["title"])
+            changed += 1
+
     return changed

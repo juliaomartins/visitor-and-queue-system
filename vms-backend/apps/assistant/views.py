@@ -8,6 +8,7 @@ import logging
 
 import openai
 from django.conf import settings
+from django.db import IntegrityError
 from django.db.models import Count
 from drf_spectacular.utils import extend_schema
 from langgraph.errors import GraphRecursionError
@@ -101,6 +102,12 @@ class AssistantChatView(APIView):
         payload = ChatRequestSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
         data = payload.validated_data
+        request_id = data.get("request_id")
+
+        # A Retry of a send that already landed: answer from the database. The
+        # proxy in front of us gives up long before a slow answer does.
+        if request_id and (stored := services.find_exchange(request.user, request_id)):
+            return self._respond(*stored, remembered=[])
 
         conversation = None
         if data.get("conversation"):
@@ -147,22 +154,38 @@ class AssistantChatView(APIView):
             log.warning("assistant: OpenAI error %s", error)
             return _unavailable("OpenAI returned an error. Try again in a moment.")
 
-        conversation, question, answer = services.record_exchange(
-            request.user,
-            conversation,
-            question=data["message"],
-            locale=data["locale"],
-            result=result,
-        )
-        conversation.message_count = conversation.messages.count()
+        try:
+            conversation, question, answer = services.record_exchange(
+                request.user,
+                conversation,
+                question=data["message"],
+                locale=data["locale"],
+                result=result,
+                client_id=request_id,
+            )
+        except IntegrityError:
+            # The first attempt of this same send finished while this one was
+            # waiting on OpenAI. Its answer is the one already saved; return it
+            # rather than saving the question a second time.
+            stored = services.find_exchange(request.user, request_id) if request_id else None
+            if stored is None:
+                raise
+            return self._respond(*stored, remembered=[])
 
+        return self._respond(
+            conversation, question, answer, remembered=result.get("remembered", [])
+        )
+
+    @staticmethod
+    def _respond(conversation, question, answer, *, remembered):
+        conversation.message_count = conversation.messages.count()
         return Response(
             ChatResponseSerializer(
                 {
                     "conversation": conversation,
                     "question": question,
                     "answer": answer,
-                    "remembered": result.get("remembered", []),
+                    "remembered": remembered,
                 }
             ).data
         )

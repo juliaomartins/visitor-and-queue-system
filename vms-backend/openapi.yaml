@@ -1371,6 +1371,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/LocaleEnum'
           default: en
+        request_id:
+          type: string
+          format: uuid
+          nullable: true
       required:
       - message
     ChatResponse:

@@ -128,6 +128,8 @@ export async function askAssistant(input: {
   conversation: string | null;
   message: string;
   locale: Locale;
+  /** One id per send, reused by Retry -- see `newRequestId` in assistant-flow. */
+  requestId: string;
 }): Promise<ChatResponse> {
   // A request with a body cannot be replayed after a 401, so get a token first.
   await ensureAccessToken();
@@ -139,6 +141,7 @@ export async function askAssistant(input: {
         conversation: input.conversation,
         message: input.message.slice(0, MAX_CHARS),
         locale: input.locale,
+        request_id: input.requestId,
       },
     });
   } catch {

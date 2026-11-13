@@ -59,6 +59,11 @@ class ChatMessage(TimeStampedModel):
     )
     role = models.CharField(max_length=10, choices=ChatRole.choices)
     content = models.TextField()
+    # On a question: the dashboard's id for that send. Unique, so a Retry of a
+    # request that already landed -- the proxy gave up at 30s while Django
+    # finished -- cannot save the question twice. The scanner's `client_uuid`
+    # does the same job for scans.
+    client_id = models.UUIDField(null=True, blank=True, unique=True)
     # On an answer: the files it offered (the dashboard redraws the Download
     # buttons from these) and the tools that ran, for the record.
     downloads = models.JSONField(default=list, blank=True)

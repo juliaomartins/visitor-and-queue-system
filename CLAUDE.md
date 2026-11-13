@@ -1410,20 +1410,31 @@ for the analysis that follows it.
   loads the last 20 messages (`services.HISTORY_LIMIT`) as the model's memory,
   so a reload loses nothing and a client cannot rewrite the past. The
   question and the answer are written together **after** the model answers:
-  a failed call saves nothing, so Retry cannot duplicate a question. The
+  a failed call saves nothing. Retry reuses the send's `request_id`, stored
+  unique on the question (`ChatMessage.client_id`), so a Retry after the
+  dashboard's proxy gave up — while Django went on to save — is answered from
+  the database instead of saved twice. `experimental.proxyTimeout` in
+  `next.config.ts` is 180 s for the same reason; Next's default is 30 s. The
   dashboard keeps only the open conversation's id in React state — never
   browser storage, because answers carry visitor names.
 - **Chat history quotes visitor names, so a purge redacts them.**
   `purge_visitor` calls `assistant.services.redact_visitor`, which replaces
-  the full name with `[deleted visitor]` in every saved message
-  (case-insensitive; names under 3 characters skipped). Without it "erase for
-  good" would leave the person in chat history. A soft delete does not
+  the full name with `[deleted visitor]` in every saved message **and every
+  conversation title** (a title is the first question). Case-insensitive and
+  **whole words only**: matched as a substring, purging a test visitor named
+  "Test" turned every "latest" into "la[deleted visitor]", permanently. Names
+  under 3 characters are skipped. Without it "erase for good" would leave the
+  person in chat history. A soft delete does not
   redact — it is reversible by hand, and so is the visitor's row.
-- **Memory across conversations is explicit and gated** (`memory.py`). The
-  `remember` tool is offered only when the admin's own latest message asks
-  ("remember", "lembra…", "hanoin", "keta haluha"); text arriving in a tool
-  result cannot open it, which is what stops a crafted visitor name becoming
-  a *persistent* injection. Notes are ≤200 characters, ≤20 per admin, shown
+- **Memory across conversations is explicit, and guarded twice** (`memory.py`).
+  The `remember` tool is offered only when the admin's latest message asks
+  ("remember", "lembra…", "hanoin", "keta haluha"). **That gate narrows the
+  door but does not close it** — in Tetun "hanoin" also means "think", so
+  ordinary questions open it, and a visitor name in a tool result could then
+  steer what gets written. What closes it is `grounded`: at least 75% of a
+  note's words must appear in the admin's own message, so a tool result can
+  suggest text but cannot make the admin have typed it. This document said
+  the gate alone closed it until a review proved otherwise. Notes are ≤200 characters, ≤20 per admin, shown
   with Forget buttons in the panel's History view, and refused if they
   contain any registered visitor's full name (deleted visitors included).
   They are injected into every later conversation of that admin, after

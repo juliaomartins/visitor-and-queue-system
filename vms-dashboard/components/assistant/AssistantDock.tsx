@@ -15,10 +15,10 @@ import {
   useAssistantStatus,
   useConversation,
   useConversations,
-  type ChatResponse,
   type ConversationDetail,
   type DownloadOffer,
 } from "@/lib/assistant";
+import { createSendTracker, mergeReply, newRequestId } from "@/lib/assistant-flow";
 import { useErrorText, useFormat, useLocale, useT } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/locales";
 
@@ -43,8 +43,14 @@ import type { MessageKey } from "@/lib/locales";
  * open (`activeId`) and the question in flight (`pending`); the messages come
  * from `useConversation`, and a successful answer is written into that cache
  * rather than kept in a second copy here. A failed question stays on screen as
- * `pending` with Retry -- the server saved nothing, so retrying cannot
- * duplicate it.
+ * `pending` with Retry, under the SAME request id: if the first attempt did
+ * land -- the proxy gave up while the backend finished -- the server answers
+ * the retry from what it saved instead of saving the question twice.
+ *
+ * A REPLY UPDATES THE CACHE ALWAYS, AND THE PANEL ONLY IF THE ADMIN STAYED.
+ * Opening another conversation mid-question used to be pulled back to the old
+ * one when its answer landed. `tracker` says whether the panel is still where
+ * the question was asked.
  */
 
 const SUGGESTIONS: MessageKey[] = [
@@ -86,7 +92,10 @@ export function AssistantPanel() {
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [view, setView] = useState<"chat" | "history">("chat");
-  const [pending, setPending] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ text: string; requestId: string } | null>(
+    null,
+  );
+  const [tracker] = useState(createSendTracker);
   const [draft, setDraft] = useState("");
   // Notes saved on a turn, keyed by that answer's id. Shown only in this
   // session: the server keeps the notes themselves, not which turn made them.
@@ -100,41 +109,61 @@ export function AssistantPanel() {
   const conversation = useConversation(activeId);
   const recent = useConversations(open && activeId === null && view === "chat");
 
+  // Cache writes happen here, whatever the panel is showing by now.
   const ask = useMutation({
     mutationFn: askAssistant,
-    onSuccess: (reply: ChatResponse) => {
-      const id = reply.conversation.id;
+    onSuccess: (reply) => {
       queryClient.setQueryData<ConversationDetail>(
-        assistantKeys.conversation(id),
-        (old) => ({
-          ...reply.conversation,
-          messages: [...(old?.messages ?? []), reply.question, reply.answer],
-        }),
+        assistantKeys.conversation(reply.conversation.id),
+        (old) => mergeReply(old, reply),
       );
-      setActiveId(id);
-      setPending(null);
       if (reply.remembered.length) {
-        setRemembered((current) => ({ ...current, [reply.answer.id]: reply.remembered }));
         queryClient.invalidateQueries({ queryKey: assistantKeys.memories });
       }
       queryClient.invalidateQueries({ queryKey: assistantKeys.conversations });
     },
   });
 
+  const submit = useCallback(
+    (question: { text: string; requestId: string }) => {
+      const token = tracker.begin();
+      ask.mutate(
+        { conversation: activeId, message: question.text, locale, requestId: question.requestId },
+        {
+          // Moving the panel happens here, and only if the admin is still
+          // where they asked.
+          onSuccess: (reply) => {
+            if (!tracker.isCurrent(token)) return;
+            setActiveId(reply.conversation.id);
+            setPending(null);
+            if (reply.remembered.length) {
+              setRemembered((current) => ({
+                ...current,
+                [reply.answer.id]: reply.remembered,
+              }));
+            }
+          },
+        },
+      );
+    },
+    [activeId, ask, locale, tracker],
+  );
+
   const send = useCallback(
     (text: string) => {
       const message = text.trim().slice(0, MAX_CHARS);
       if (!message || ask.isPending || disabled) return;
 
-      setPending(message);
+      const question = { text: message, requestId: newRequestId() };
+      setPending(question);
       setDraft("");
-      ask.mutate({ conversation: activeId, message, locale });
+      submit(question);
     },
-    [activeId, ask, disabled, locale],
+    [ask.isPending, disabled, submit],
   );
 
   const retry = () => {
-    if (pending) ask.mutate({ conversation: activeId, message: pending, locale });
+    if (pending) submit(pending);
   };
 
   const close = useCallback(() => {
@@ -143,6 +172,7 @@ export function AssistantPanel() {
   }, [launcherRef, setOpen]);
 
   const startNew = () => {
+    tracker.navigate();
     ask.reset();
     setPending(null);
     setActiveId(null);
@@ -152,6 +182,7 @@ export function AssistantPanel() {
   };
 
   const openConversation = (id: string) => {
+    tracker.navigate();
     ask.reset();
     setPending(null);
     setActiveId(id);
@@ -251,6 +282,7 @@ export function AssistantPanel() {
             onBack={() => setView("chat")}
             onDeleted={(id) => {
               if (id === activeId) {
+                tracker.navigate();
                 setActiveId(null);
                 setPending(null);
               }
@@ -339,7 +371,7 @@ export function AssistantPanel() {
               ))}
               {pending !== null ? (
                 <li>
-                  <Question text={pending} />
+                  <Question text={pending.text} />
                 </li>
               ) : null}
             </ol>

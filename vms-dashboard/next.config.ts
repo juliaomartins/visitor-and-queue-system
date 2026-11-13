@@ -40,6 +40,19 @@ const nextConfig: NextConfig = {
   // @vms/contracts ships TypeScript source, not a build.
   transpilePackages: ["@vms/contracts"],
 
+  experimental: {
+    /*
+      How long the /api rewrite waits for the backend. Next's default is 30s
+      (`proxyTimeout || 30000` in router-utils/proxy-request.js), and the
+      assistant can take longer: one OpenAI call may run 60s plus a retry, and
+      an answer can take several. At 30s the browser got a 500 while Django
+      went on to save the answer, and Retry saved the question twice. Three
+      minutes covers a slow answer; the request id the assistant sends makes a
+      retry safe even past that.
+    */
+    proxyTimeout: 180_000,
+  },
+
   // The contracts package is a file: dependency symlinked to ../vms-contracts.
   // Without the monorepo root, the bundler refuses to follow a symlink that
   // leaves the app directory and cannot resolve it at all.

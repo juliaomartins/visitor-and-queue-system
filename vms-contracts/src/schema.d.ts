@@ -822,6 +822,8 @@ export interface components {
             message: string;
             /** @default en */
             locale: components["schemas"]["LocaleEnum"];
+            /** Format: uuid */
+            request_id?: string | null;
         };
         ChatResponse: {
             conversation: components["schemas"]["ConversationSummary"];

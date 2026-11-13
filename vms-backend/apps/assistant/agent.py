@@ -206,7 +206,10 @@ def ask(messages: list[dict], *, actor, locale: str = "en", model=None) -> dict:
     agent = create_agent(
         model or _model(),
         tools=build_tools(
-            session, owner=actor if signed_in else None, allow_memory=allow_memory
+            session,
+            owner=actor if signed_in else None,
+            allow_memory=allow_memory,
+            said=messages[-1]["content"],
         ),
         system_prompt=_system_prompt(locale, notes),
     )

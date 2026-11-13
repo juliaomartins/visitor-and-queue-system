@@ -142,7 +142,8 @@ class ScanLogArgs(DateRange):
 class RememberArgs(BaseModel):
     note: str = Field(
         description=(
-            "The preference or term to keep, in a short sentence, e.g. "
+            "The preference or term to keep, in the admin's own words and "
+            "language, in a short sentence, e.g. "
             "'Answer in Tetun' or 'Gate B means the side gate'. Never a fact "
             "about a visitor."
         )
@@ -228,12 +229,12 @@ def _offer_download(session: Session):
 # --------------------------------------------------------------------------
 
 
-def _remember(session: Session, owner):
+def _remember(session: Session, owner, said: str):
     """The one tool that writes. Built only on turns the admin asked for it."""
 
     def remember(*, note: str) -> dict:
         try:
-            saved = memory.save_note(owner, note)
+            saved = memory.save_note(owner, note, said=said)
         except memory.MemoryRefused as refusal:
             return {"error": str(refusal)}
         if saved.text not in session.remembered:
@@ -244,7 +245,7 @@ def _remember(session: Session, owner):
 
 
 def build_tools(
-    session: Session, *, owner=None, allow_memory: bool = False
+    session: Session, *, owner=None, allow_memory: bool = False, said: str = ""
 ) -> list[StructuredTool]:
     specs = [
         (
@@ -308,7 +309,7 @@ def build_tools(
                 "for all their future conversations. Only when their latest "
                 "message asks you to remember something.",
                 RememberArgs,
-                _remember(session, owner),
+                _remember(session, owner, said),
             )
         )
 
