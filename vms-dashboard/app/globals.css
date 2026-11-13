@@ -676,3 +676,336 @@ body {
   height: 44px;
   transform: translate(-50%, -50%);
 }
+
+/* ------------------------------------------------------------- assistant -- */
+
+/*
+  The data assistant (components/assistant). Component classes, unlayered,
+  for the reason .btn-lg gives: a Tailwind utility cannot resize or recolour an
+  unlayered class, so each variant here owns its whole look rather than
+  relying on an override that would be silently discarded.
+*/
+
+.assistant-launcher {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  /* Above the page and the sticky topbar (z-30), below RowContextMenu's
+     overlay (z-40) so a right-click menu is never covered by the launcher. */
+  z-index: 35;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 1.15rem 0 0.95rem;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow:
+    0 1px 2px color-mix(in oklab, var(--color-brand-blue) 30%, transparent),
+    0 8px 24px -8px color-mix(in oklab, var(--color-brand-blue) 55%, transparent);
+  transition: background-color 140ms ease;
+}
+
+.assistant-launcher:hover {
+  background: var(--color-accent-2);
+}
+
+.assistant-panel {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  width: min(26rem, calc(100vw - 2rem));
+  height: min(40rem, calc(100dvh - 2rem));
+  overflow: hidden;
+  background: var(--color-card);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-card);
+  box-shadow: 0 24px 60px -24px color-mix(in oklab, var(--color-graphite-950) 45%, transparent);
+  animation: assistant-open 160ms ease-out;
+}
+
+@keyframes assistant-open {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* The woven tais the printed card ends in, as the panel's top edge.
+
+   ONE copy, scaled to the panel's width, never tiled -- CLAUDE.md records why
+   a repeated tais reads as a pattern rather than as cloth. The strip is
+   748x100: the band on top, the card's navy foot below. 16px frames the
+   central woven row; the 18% offset is proportional, so the same row stays
+   framed whether the panel is 416px wide or a 358px phone sheet. An 8px slice
+   was tried first and cut through the motif, reading as a rainbow ribbon. */
+.assistant-seam {
+  flex: none;
+  height: 1rem;
+  background: url("/brand/tais-strip.png") center 18% / 100% auto no-repeat;
+}
+
+.assistant-icon-button {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  color: var(--color-ink-3);
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.assistant-icon-button:hover:not(:disabled) {
+  background: var(--color-card-2);
+  color: var(--color-ink);
+}
+
+.assistant-icon-button:disabled {
+  opacity: 0.4;
+}
+
+.assistant-notice {
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.6rem;
+  background: var(--color-card-2);
+  border: 1px solid var(--color-line);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--color-ink-2);
+}
+
+.assistant-suggestion {
+  text-align: left;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0.75rem;
+  background: var(--color-card);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--color-ink-2);
+  transition:
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.assistant-suggestion:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* The admin's own words: a bubble, right-aligned, in the console's navy. */
+.assistant-question {
+  max-width: 85%;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.95rem 0.95rem 0.3rem 0.95rem;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The answer is NOT a bubble: it is the record speaking, set as text against
+   a navy rule, so the eye can tell question from answer without reading. */
+.assistant-answer {
+  padding-left: 0.85rem;
+  border-left: 2px solid var(--color-accent);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--color-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.assistant-answer p + p,
+.assistant-answer p + ul,
+.assistant-answer ul + p {
+  margin-top: 0.5rem;
+}
+
+/* The answer's own bullets only -- the offered files are a list too, and
+   inheriting a disc and an indent squeezed their titles into truncation. */
+.assistant-answer ul:not(.assistant-files) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-left: 1.05rem;
+  list-style: disc;
+}
+
+.assistant-answer li::marker {
+  color: var(--color-ink-3);
+}
+
+/* The key figure in Plus Jakarta, like every other big number in this
+   console -- "a figure should feel spoken, not typed" (see .display). */
+.assistant-answer strong {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.06em;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+
+/* Only the allowlisted author links ever render as <a> (AnswerText.tsx). */
+.assistant-answer a {
+  color: var(--color-accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.assistant-answer a:hover {
+  color: var(--color-accent-2);
+}
+
+.assistant-thinking {
+  font-size: 0.8125rem;
+  color: var(--color-ink-3);
+  animation: assistant-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes assistant-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.assistant-text-button {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.assistant-files {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.assistant-file {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.6rem 0.55rem 0.55rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.7rem;
+  background: var(--color-card-2);
+}
+
+.assistant-file-badge {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.5rem;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.assistant-file-button {
+  flex: none;
+  min-height: 2rem;
+  padding: 0 0.8rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-card);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-ink);
+  transition: border-color 140ms ease;
+}
+
+.assistant-file-button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.assistant-file-button:disabled {
+  color: var(--color-ink-3);
+}
+
+.assistant-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+  padding: 0.35rem 0.35rem 0.35rem 0.8rem;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0.8rem;
+  background: var(--color-card);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.assistant-composer:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.assistant-input {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  padding: 0.4rem 0;
+  background: transparent;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--color-ink);
+}
+
+/* The composer draws the ring for the whole row; a second outline on the
+   textarea inside it would be a box in a box. */
+.assistant-input:focus-visible {
+  outline: none;
+}
+
+.assistant-input::placeholder {
+  color: var(--color-ink-3);
+}
+
+.assistant-send {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.6rem;
+  background: var(--color-accent);
+  color: #fff;
+  transition:
+    background-color 140ms ease,
+    opacity 140ms ease;
+}
+
+.assistant-send:hover:not(:disabled) {
+  background: var(--color-accent-2);
+}
+
+.assistant-send:disabled {
+  opacity: 0.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant-panel,
+  .assistant-thinking {
+    animation: none;
+  }
+}

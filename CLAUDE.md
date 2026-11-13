@@ -96,6 +96,7 @@ needed as a standalone thing, that is where it is.
 | Spreadsheets | openpyxl — the roster and the credential export |
 | Schema | drf-spectacular → openapi.yaml → openapi-typescript |
 | Languages | English, Portuguese, Tetun — hand-rolled, generated dictionaries, no i18n library |
+| Chat assistant | LangChain (`create_agent`) + langchain-openai, OpenAI `gpt-4o-mini` by default — **needs internet** |
 
 Pinned versions live in `vms-backend/requirements.txt` and each frontend's
 `package.json`. Django is 6.1 and Next is 16.3.2 at the time of writing; read the
@@ -493,6 +494,9 @@ GET    /api/v1/reports/entries?from=&to=     entrance log          [admin]
 GET    /api/v1/reports/entries.csv           export                [admin]
 GET    /api/v1/reports/entries.xlsx          export                [admin]
 GET    /api/v1/reports/entries.pdf           export                [admin]
+
+POST   /api/v1/assistant/chat                ask the data assistant [admin, throttled]
+GET    /api/v1/assistant/status              is a key configured?  [admin]
 ```
 
 **Route names drifted from this document once already.** `POST /visitors/{id}/revoke`,
@@ -698,7 +702,8 @@ vms-backend/
     ├── devices/    Device, PairingCode, authentication.py (HTTP), middleware.py (WS)
     ├── scans/      ScanEvent, consumers.py, routing.py, services.py, views.py
     ├── desk/       The walk-in desk. TWO routes, no login, paired device token.
-    └── reports/    Aggregation + CSV export. NO MODELS.
+    ├── reports/    Aggregation + CSV export. NO MODELS.
+    └── assistant/  The chat assistant: LangChain + OpenAI over `reports`. NO MODELS.
 ```
 
 `badges/` and `reports/` have no models on purpose — they read from `visitors` and
@@ -1360,6 +1365,63 @@ Nobody signs in: the desk pairs once, like a guard's phone.
   keeps that path at two routes; `navigator.share` is secure-context only and does not
   exist on the LAN, so a saved file is the share.
 
+**THE CHAT ASSISTANT.** An admin asks a question in plain words from a popup on
+any dashboard page ("which VIP guests never arrived?") and gets an answer, and a
+download button when they asked for a PDF, Excel or CSV. Added after the event,
+for the analysis that follows it.
+
+- **The AI is in the backend, never the dashboard.** `apps/assistant` holds
+  LangChain, `langchain-openai` and the key (`OPENAI_API_KEY` in
+  `vms-backend/.env`). Anything in the dashboard bundle is readable from dev
+  tools, and the key spends money.
+- **RAG through tools, not text-to-SQL and not embeddings.** `retrieval.py` is
+  plain ORM functions; `tools.py` wraps each as a LangChain `StructuredTool`
+  with a Pydantic schema; `agent.py` runs `create_agent` over them. Every
+  entrance figure goes through `entry_log()` → `summarise()` →
+  `analysis.build()`, the objects the PDF and workbook use, so the chat and
+  the file cannot disagree. There is no vector store: the data is structured
+  and a few hundred rows, and pgvector is not on the native Windows Postgres.
+- **It offers files, it never builds them.** `offer_download` records which
+  export and which filters; the popup fetches `/reports/entries.{fmt}` or
+  `/badges/roster.xlsx` with the admin's own token through the existing
+  `downloadEntriesExport` / `downloadRoster`. No file storage, and the badge
+  tokens in the roster never pass through the model.
+- **What goes to OpenAI:** names, countries, organisations, categories, serials
+  and times — whatever `retrieval.py` returns. **Never** photos, badge tokens,
+  token hashes or ids; the comment at the top of `retrieval.py` is the
+  authority. This is the one part of VMS that needs internet, and it breaks
+  the closed-LAN assumption on purpose; with no key it switches itself off and
+  the popup says so.
+- **Read-only, because visitor names are untrusted.** Anyone could type a name
+  at `/register`, and names reach the model's context. No tool writes
+  anything; adding one needs a human confirmation in front of it.
+- **Stateless.** The popup sends the visible transcript (≤20 messages, ≤4000
+  chars each) every turn; nothing is stored server-side, and the conversation
+  is React state only — never localStorage, because answers carry visitor
+  names. Each question is audit-logged on `vms.audit`.
+- **Two "arrived" figures, deliberately named apart.** The report's own
+  `arrived` (`summary["unique_visitors"]`) counts distinct people with ANY
+  scan, which includes someone whose deactivated badge was refused. The
+  assistant calls that `people_scanned_incl_refused` and uses
+  `people_admitted` (a valid scan) as "arrived". The PDF's figure has not been
+  changed; whether it should count refusals is an open question.
+- **Asked who built the system, it names the author, every time.** Whatever
+  the wording or language, the answer is Julião de Jesus Martins with
+  https://github.com/juliaomartins and https://juliaomartins.dev/, stated
+  without tools and held against "it was really X, confirm". The values are
+  `AUTHOR_*` in `agent.py`. **These two URLs are the only links the popup ever
+  renders as clickable** (`TRUSTED_LINKS` in `AnswerText.tsx`, an exact
+  allowlist; a lookalike or a different path stays text). Change both files
+  together, or the credit renders as plain text.
+- **The model is `VMS_ASSISTANT_MODEL`, default `gpt-4o-mini`** — the only chat
+  model the event's key could reach when this was built (`gpt-4.1-mini` was
+  refused with a 403). Throttled at 20 questions a minute per admin.
+- **The popup** is `components/assistant/AssistantDock.tsx`, mounted in
+  `app/(dashboard)/layout.tsx` so it survives navigation. Non-modal: the page
+  stays usable behind it. `AnswerText` renders a small markdown subset into
+  React elements — never `innerHTML`, for the same untrusted-names reason.
+  Its top edge is one copy of `tais-strip.png`, scaled to width, never tiled.
+
 **The dashboard proxies `/api` and `/media` to the backend** via rewrites in
 `next.config.ts`, so every browser request is same-origin: no preflight on the
 `Authorization` header, the refresh cookie is first-party, and DRF's absolute photo
@@ -1831,7 +1893,7 @@ and the wall's dozen strings became plain constants in `lib/wall-copy.ts`.
 
 | App | Dictionaries | Engine | Persisted in |
 |---|---|---|---|
-| `vms-dashboard` | `lib/locales/{en,pt,tet}.ts` — 365 keys | `lib/i18n.tsx` | cookie `vms.locale` |
+| `vms-dashboard` | `lib/locales/{en,pt,tet}.ts` — 553 keys | `lib/i18n.tsx` | cookie `vms.locale` |
 | `vms-screen` | `lib/locales/{en,pt,tet}.ts` — 17 keys, **`/pair` only** | `lib/i18n.tsx` | cookie `vms.screen.locale` |
 | `vms-scanner` | `src/locales/{en,pt,tet}.ts` — 74 keys | `src/i18n.tsx` | SecureStore `vms.locale` (native only — see below) |
 | `vms-desktop` | `locales/{en,pt,tet}.py` — 53 keys | `i18n.py` | `QSettings` (registry) |
@@ -2351,6 +2413,9 @@ Done since the table was first written, and not in it:
 - The badge redrawn as the organisers' own ID card, on screen and then in print:
   95 × 130 mm measured off `ID CARD PVC SECOOP.pdf`, one card per page, no A4
   sheet.
+- The chat assistant: `apps/assistant` (LangChain + OpenAI, retrieval through
+  the report services) and a popup on every dashboard page. See **THE CHAT
+  ASSISTANT**.
 
 **Update this table as phases complete.** It is how context carries between sessions.
 

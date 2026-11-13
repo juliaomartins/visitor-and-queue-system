@@ -694,4 +694,47 @@ export const tet: Messages = {
     "Rai iha navegador ne\u2019e. Meza ida-idak bele hili nian.",
   "settings.themeLabel": "Tema",
   "settings.languageLabel": "Lian",
+
+  // ----------------------------------------------------------- assistant --
+  "assistant.launcher": "Husu",
+  "assistant.title": "Husu kona-ba eventu",
+  "assistant.subtitle": "Resposta mai husi rejistu inskrisaun no tama nian.",
+  "assistant.close": "Taka",
+  "assistant.clear": "Konversa foun",
+  "assistant.emptyLead":
+    "Husu ho ita-nia liafuan rasik, ka hah\u00fa ho ida husi ne\u2019e.",
+  "assistant.suggest.dayOne":
+    "Ema na\u2019in hira mak to\u2019o iha loron 2 Outubru?",
+  "assistant.suggest.vipAbsent":
+    "Konvidadu VIP sira ne\u2019eb\u00e9 mak la to\u2019o?",
+  "assistant.suggest.refused":
+    "Se mak hetan rejeisaun iha odamatan, no bainhira?",
+  "assistant.suggest.excel":
+    "F\u00f3 relat\u00f3riu tama ba loron rua nian iha Excel",
+  "assistant.placeholder": "Husu kona-ba xegada, vizitante ka rejeisaun",
+  "assistant.send": "Haruka",
+  "assistant.inputHint": "Enter atu haruka, Shift+Enter ba li\u00f1a foun",
+  "assistant.thinking": "Lee hela rejistu\u2026",
+  "assistant.you": "Ita",
+  "assistant.bot": "Asistente",
+  "assistant.privacy":
+    "OpenAI mak hakerek resposta husi rejistu eventu ne\u2019e nian. Foto no k\u00f3digu kartaun nunka haruka.",
+  "assistant.disabled":
+    "Asistente mate iha servidor ne\u2019e. Aumenta OPENAI_API_KEY ba vms-backend/.env no reinisia backend.",
+  "assistant.retry": "Koko fali",
+  "assistant.error.throttled":
+    "Pergunta barak liu iha minutu ida. Hein uitoan no koko fali.",
+  "assistant.error.network":
+    "Backend la responde. Haree se nia la\u2019o hela.",
+  "assistant.error.stale":
+    "Backend seidauk iha asistente. Reinisia nia atu karrega k\u00f3digu foun.",
+  "assistant.error.unexpected": "La konsege responde pergunta ne\u2019e.",
+  "assistant.download": "Deskarega",
+  "assistant.downloading": "Prepara hela\u2026",
+  "assistant.downloadFailed": "La konsege deskarega arkivu.",
+  "assistant.file.entrance": "Relat\u00f3riu tama",
+  "assistant.file.visitors": "Lista vizitante ho k\u00f3digu QR",
+  "assistant.file.allVisitors": "Vizitante rejistadu hotu",
+  "assistant.file.oneDay": "{day}",
+  "assistant.file.range": "{from} to\u2019o {to}",
 };

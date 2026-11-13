@@ -682,6 +682,46 @@ export const en = {
     "Kept in this browser. Every desk can choose its own.",
   "settings.themeLabel": "Theme",
   "settings.languageLabel": "Language",
+
+  // ----------------------------------------------------------- assistant --
+  "assistant.launcher": "Ask",
+  "assistant.title": "Ask about the event",
+  "assistant.subtitle":
+    "Answers come from the registration and entrance records.",
+  "assistant.close": "Close",
+  "assistant.clear": "New conversation",
+  "assistant.emptyLead": "Ask in your own words, or start with one of these.",
+  "assistant.suggest.dayOne": "How many people arrived on 2 October?",
+  "assistant.suggest.vipAbsent": "Which VIP guests never arrived?",
+  "assistant.suggest.refused": "Who was refused at the door, and when?",
+  "assistant.suggest.excel":
+    "Give me the entrance report for both days as Excel",
+  "assistant.placeholder": "Ask about arrivals, visitors or refusals",
+  "assistant.send": "Send",
+  "assistant.inputHint": "Enter to send, Shift+Enter for a new line",
+  "assistant.thinking": "Reading the records\u2026",
+  "assistant.you": "You",
+  "assistant.bot": "Assistant",
+  "assistant.privacy":
+    "Answers are written by OpenAI from this event\u2019s records. Photos and badge codes are never sent.",
+  "assistant.disabled":
+    "The assistant is switched off on this server. Add OPENAI_API_KEY to vms-backend/.env and restart the backend.",
+  "assistant.retry": "Try again",
+  "assistant.error.throttled":
+    "Too many questions in a minute. Wait a moment and try again.",
+  "assistant.error.network":
+    "The backend did not answer. Check that it is running.",
+  "assistant.error.stale":
+    "The backend does not have the assistant yet. Restart it to load the new code.",
+  "assistant.error.unexpected": "The question could not be answered.",
+  "assistant.download": "Download",
+  "assistant.downloading": "Preparing\u2026",
+  "assistant.downloadFailed": "The file could not be downloaded.",
+  "assistant.file.entrance": "Entrance report",
+  "assistant.file.visitors": "Visitor list with QR codes",
+  "assistant.file.allVisitors": "Every registered visitor",
+  "assistant.file.oneDay": "{day}",
+  "assistant.file.range": "{from} to {to}",
 } as const;
 
 /** Every message key in the dashboard. */

@@ -712,4 +712,47 @@ export const pt: Messages = {
     "Guardado neste navegador. Cada posto pode escolher o seu.",
   "settings.themeLabel": "Tema",
   "settings.languageLabel": "Idioma",
+
+  // ----------------------------------------------------------- assistant --
+  "assistant.launcher": "Perguntar",
+  "assistant.title": "Perguntar sobre o evento",
+  "assistant.subtitle":
+    "As respostas v\u00eam dos registos de inscri\u00e7\u00e3o e de entrada.",
+  "assistant.close": "Fechar",
+  "assistant.clear": "Nova conversa",
+  "assistant.emptyLead":
+    "Pergunte por palavras suas, ou comece por uma destas.",
+  "assistant.suggest.dayOne": "Quantas pessoas chegaram a 2 de outubro?",
+  "assistant.suggest.vipAbsent": "Que convidados VIP nunca chegaram?",
+  "assistant.suggest.refused": "Quem foi recusado \u00e0 entrada, e quando?",
+  "assistant.suggest.excel":
+    "D\u00ea-me o relat\u00f3rio de entradas dos dois dias em Excel",
+  "assistant.placeholder": "Pergunte sobre chegadas, visitantes ou recusas",
+  "assistant.send": "Enviar",
+  "assistant.inputHint": "Enter para enviar, Shift+Enter para nova linha",
+  "assistant.thinking": "A ler os registos\u2026",
+  "assistant.you": "Voc\u00ea",
+  "assistant.bot": "Assistente",
+  "assistant.privacy":
+    "As respostas s\u00e3o escritas pela OpenAI a partir dos registos deste evento. Fotografias e c\u00f3digos de crach\u00e1 nunca s\u00e3o enviados.",
+  "assistant.disabled":
+    "O assistente est\u00e1 desligado neste servidor. Adicione OPENAI_API_KEY a vms-backend/.env e reinicie o backend.",
+  "assistant.retry": "Tentar de novo",
+  "assistant.error.throttled":
+    "Demasiadas perguntas num minuto. Aguarde um momento e tente de novo.",
+  "assistant.error.network":
+    "O backend n\u00e3o respondeu. Verifique se est\u00e1 a correr.",
+  "assistant.error.stale":
+    "O backend ainda n\u00e3o tem o assistente. Reinicie-o para carregar o c\u00f3digo novo.",
+  "assistant.error.unexpected":
+    "N\u00e3o foi poss\u00edvel responder \u00e0 pergunta.",
+  "assistant.download": "Descarregar",
+  "assistant.downloading": "A preparar\u2026",
+  "assistant.downloadFailed":
+    "N\u00e3o foi poss\u00edvel descarregar o ficheiro.",
+  "assistant.file.entrance": "Relat\u00f3rio de entradas",
+  "assistant.file.visitors": "Lista de visitantes com c\u00f3digos QR",
+  "assistant.file.allVisitors": "Todos os visitantes inscritos",
+  "assistant.file.oneDay": "{day}",
+  "assistant.file.range": "{from} a {to}",
 };

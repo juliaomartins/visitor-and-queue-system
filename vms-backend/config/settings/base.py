@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "apps.reports",
     "apps.registrations",
     "apps.desk",
+    "apps.assistant",
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -202,6 +203,9 @@ REST_FRAMEWORK = {
         # low enough that a stolen token cannot fill the roster unnoticed.
         "desk_registration": "120/hour",
         "desk_qr": "600/hour",
+        # The dashboard's chat assistant, per admin. Each question is one or more
+        # paid OpenAI calls; a person typing does a few a minute.
+        "assistant": "20/min",
     },
 }
 
@@ -267,6 +271,18 @@ LOGGING = {
         "vms.audit": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
+
+# --------------------------------------------------------------------------
+# Chat assistant — see apps/assistant
+# --------------------------------------------------------------------------
+
+# Empty disables the assistant; the dashboard says so instead of failing. With a
+# key set, this server needs internet access, and the visitor rows the assistant
+# retrieves (names, countries, organisations -- never photos or badge tokens)
+# are sent to OpenAI to write each answer.
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+ASSISTANT_MODEL = env("VMS_ASSISTANT_MODEL", default="gpt-4o-mini")
+ASSISTANT_TIMEOUT_SECONDS = env.int("VMS_ASSISTANT_TIMEOUT_SECONDS", default=60)
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "VMS API",
