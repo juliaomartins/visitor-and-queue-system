@@ -5,24 +5,21 @@ from rest_framework import serializers
 from apps.scans.models import ScanResult
 from apps.visitors.models import VisitorCategory
 
-# The dashboard sends the visible transcript every turn. Bounded so one request
-# cannot ship a novel to OpenAI on the admin's key.
-MAX_MESSAGES = 20
+from .models import ChatMessage, Conversation, Locale, MemoryNote
+
+# One question per request. Bounded so a pasted document cannot be shipped to
+# OpenAI on the admin's key; the history the model also sees is bounded by
+# services.HISTORY_LIMIT.
 MAX_MESSAGE_CHARS = 4000
 
 
-class ChatMessageSerializer(serializers.Serializer):
-    role = serializers.ChoiceField(choices=["user", "assistant"])
-    content = serializers.CharField(max_length=MAX_MESSAGE_CHARS, trim_whitespace=True)
-
-
 class ChatRequestSerializer(serializers.Serializer):
-    messages = ChatMessageSerializer(many=True, min_length=1, max_length=MAX_MESSAGES)
+    """Only the new message. The history comes from the database, not the
+    browser -- so a reload loses nothing and a client cannot rewrite the past."""
 
-    def validate_messages(self, value):
-        if value[-1]["role"] != "user":
-            raise serializers.ValidationError("The last message must be the user's.")
-        return value
+    conversation = serializers.UUIDField(required=False, allow_null=True)
+    message = serializers.CharField(max_length=MAX_MESSAGE_CHARS, trim_whitespace=True)
+    locale = serializers.ChoiceField(choices=Locale.choices, default=Locale.EN)
 
 
 class DownloadFiltersSerializer(serializers.Serializer):
@@ -43,10 +40,46 @@ class DownloadOfferSerializer(serializers.Serializer):
     filters = DownloadFiltersSerializer()
 
 
+class ChatMessageSerializer(serializers.ModelSerializer):
+    downloads = DownloadOfferSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ChatMessage
+        fields = ("id", "role", "content", "downloads", "created_at")
+        read_only_fields = fields
+
+
+class ConversationSummarySerializer(serializers.ModelSerializer):
+    # Annotated by the views (`Count("messages")`), never a query per row.
+    message_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Conversation
+        fields = ("id", "title", "locale", "created_at", "updated_at", "message_count")
+        read_only_fields = fields
+
+
+class ConversationDetailSerializer(ConversationSummarySerializer):
+    messages = ChatMessageSerializer(many=True, read_only=True)
+
+    class Meta(ConversationSummarySerializer.Meta):
+        fields = (*ConversationSummarySerializer.Meta.fields, "messages")
+        read_only_fields = fields
+
+
 class ChatResponseSerializer(serializers.Serializer):
-    answer = serializers.CharField()
-    downloads = DownloadOfferSerializer(many=True)
-    tools_used = serializers.ListField(child=serializers.CharField())
+    conversation = ConversationSummarySerializer()
+    question = ChatMessageSerializer()
+    answer = ChatMessageSerializer()
+    # Notes saved on this turn, so the dashboard can say "Remembered: …".
+    remembered = serializers.ListField(child=serializers.CharField())
+
+
+class MemoryNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MemoryNote
+        fields = ("id", "text", "created_at")
+        read_only_fields = fields
 
 
 class AssistantStatusSerializer(serializers.Serializer):
