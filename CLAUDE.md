@@ -497,6 +497,11 @@ GET    /api/v1/reports/entries.pdf           export                [admin]
 
 POST   /api/v1/assistant/chat                ask the data assistant [admin, throttled]
 GET    /api/v1/assistant/status              is a key configured?  [admin]
+GET    /api/v1/assistant/conversations       this admin's chats    [admin]
+GET    /api/v1/assistant/conversations/{id}  one chat + messages   [admin, own only]
+DELETE /api/v1/assistant/conversations/{id}  delete a chat         [admin, own only]
+GET    /api/v1/assistant/memories            remembered notes      [admin]
+DELETE /api/v1/assistant/memories/{id}       forget one            [admin, own only]
 ```
 
 **Route names drifted from this document once already.** `POST /visitors/{id}/revoke`,
@@ -703,7 +708,8 @@ vms-backend/
     ├── scans/      ScanEvent, consumers.py, routing.py, services.py, views.py
     ├── desk/       The walk-in desk. TWO routes, no login, paired device token.
     ├── reports/    Aggregation + CSV export. NO MODELS.
-    └── assistant/  The chat assistant: LangChain + OpenAI over `reports`. NO MODELS.
+    └── assistant/  The chat assistant: LangChain + OpenAI over `reports`.
+                    Models: Conversation, ChatMessage, MemoryNote — per admin.
 ```
 
 `badges/` and `reports/` have no models on purpose — they read from `visitors` and
@@ -1393,12 +1399,51 @@ for the analysis that follows it.
   the closed-LAN assumption on purpose; with no key it switches itself off and
   the popup says so.
 - **Read-only, because visitor names are untrusted.** Anyone could type a name
-  at `/register`, and names reach the model's context. No tool writes
-  anything; adding one needs a human confirmation in front of it.
-- **Stateless.** The popup sends the visible transcript (≤20 messages, ≤4000
-  chars each) every turn; nothing is stored server-side, and the conversation
-  is React state only — never localStorage, because answers carry visitor
-  names. Each question is audit-logged on `vms.audit`.
+  at `/register`, and names reach the model's context. No data tool writes
+  anything. The one tool that does, `remember`, exists only on a turn whose
+  own message asks to remember (see below); any further writing tool needs a
+  human confirmation in front of it.
+- **Every chat is saved in PostgreSQL, private per admin.** `Conversation` →
+  `ChatMessage` (question, answer, offered downloads, tools used), scoped by
+  `owner` in every query; another admin's id answers 404, like a missing one.
+  The browser sends only the new message and the conversation id; the server
+  loads the last 20 messages (`services.HISTORY_LIMIT`) as the model's memory,
+  so a reload loses nothing and a client cannot rewrite the past. The
+  question and the answer are written together **after** the model answers:
+  a failed call saves nothing, so Retry cannot duplicate a question. The
+  dashboard keeps only the open conversation's id in React state — never
+  browser storage, because answers carry visitor names.
+- **Chat history quotes visitor names, so a purge redacts them.**
+  `purge_visitor` calls `assistant.services.redact_visitor`, which replaces
+  the full name with `[deleted visitor]` in every saved message
+  (case-insensitive; names under 3 characters skipped). Without it "erase for
+  good" would leave the person in chat history. A soft delete does not
+  redact — it is reversible by hand, and so is the visitor's row.
+- **Memory across conversations is explicit and gated** (`memory.py`). The
+  `remember` tool is offered only when the admin's own latest message asks
+  ("remember", "lembra…", "hanoin", "keta haluha"); text arriving in a tool
+  result cannot open it, which is what stops a crafted visitor name becoming
+  a *persistent* injection. Notes are ≤200 characters, ≤20 per admin, shown
+  with Forget buttons in the panel's History view, and refused if they
+  contain any registered visitor's full name (deleted visitors included).
+  They are injected into every later conversation of that admin, after
+  `format()` so a brace in a note cannot break the template. Each question is
+  audit-logged on `vms.audit` with its locale and notes saved.
+- **Three specialist languages, every other one general** (`languages.py`).
+  English, European Portuguese (registo, ecrã, telemóvel — never Brazilian)
+  and Tetun Dili (INL orthography, "ema na’in N") share one glossary whose
+  spellings are copied from `vms-dashboard/scripts/generate-locales.py` —
+  change a term in both. Any other language is answered in that language with
+  the same figures. The dashboard's interface locale is sent with each
+  question and decides only when a message is too short to tell its own.
+  Two measured fixes for Tetun, both pinned by tests: `TEMPERATURE = 0.2`
+  (the API default of 1.0 produced stray tokens — "b leading bukit" — inside
+  Tetun answers), and one worked example answer each in Tetun and Portuguese.
+  **The examples must never mention a download button**: an earlier version
+  did, and the model copied "the button is below" into answers that offered
+  no file. Live, the remaining slips are a Portuguese word now and then
+  ("porta" for "odamatan") and country names translated — the ceiling of
+  `gpt-4o-mini`, not of the prompt.
 - **Two "arrived" figures, deliberately named apart.** The report's own
   `arrived` (`summary["unique_visitors"]`) counts distinct people with ANY
   scan, which includes someone whose deactivated badge was refused. The
@@ -2251,10 +2296,20 @@ you get `websockets` and `httptools` without it.
 
 ### Tests
 
-There is no pytest suite yet, `pytest` is not installed, and there is no
-`config/settings/test.py`. Do not paste `pytest` into a terminal expecting it to prove
-anything. Verification today is `manage.py check`, `makemigrations --check --dry-run`,
-and exercising the API against a throwaway SQLite database.
+`pytest` is not installed; the suite uses Django's own runner. **The first real
+suite is `apps/assistant/tests/`**, behind `config/settings/test.py` (SQLite, no
+OpenAI key — a test that needs a model passes `tests/factories.fake_model`):
+
+```powershell
+..\.venv\Scripts\python.exe manage.py test apps.assistant --settings=config.settings.test
+```
+
+One trap it already found: LangGraph runs tools on a worker thread with its own
+database connection, so a test where a tool must see or write rows uses
+`TransactionTestCase` — `TestCase`'s open transaction hides the test's rows from
+that thread (`test_agent.MemoryGateTests` says why). The rest of the backend is
+still verified by `manage.py check`, `makemigrations --check --dry-run`, and
+exercising the API against a throwaway SQLite database.
 
 **Point `DJANGO_SETTINGS_MODULE` at a separate settings module. Never swap
 `connections.databases` at runtime.** The runtime swap does not take effect once Django
@@ -2276,7 +2331,8 @@ db = settings.DATABASES["default"]
 assert db["ENGINE"].endswith("sqlite3"), f"REFUSING: engine is {db['ENGINE']}"
 ```
 
-If a real suite is added it belongs behind `settings/test.py`, which would need writing.
+A real suite belongs behind `settings/test.py`, which now exists — add new apps'
+tests there rather than writing another throwaway module.
 
 ### Contracts
 
@@ -2433,6 +2489,9 @@ Done since the table was first written, and not in it:
 - The chat assistant: `apps/assistant` (LangChain + OpenAI, retrieval through
   the report services) and a popup on every dashboard page. See **THE CHAT
   ASSISTANT**.
+- Assistant memory: every chat saved per admin in PostgreSQL, a History view,
+  gated memory notes, and English / Portuguese / Tetun specialist answers;
+  the backend's first test suite (`apps/assistant/tests`).
 
 **Update this table as phases complete.** It is how context carries between sessions.
 

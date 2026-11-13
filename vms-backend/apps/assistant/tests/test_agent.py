@@ -89,3 +89,12 @@ class PromptTests(TestCase):
         out = ask("export please", self.admin, model)
 
         self.assertEqual(out["answer"], "Done.")
+
+
+class ModelSettingsTests(TestCase):
+    def test_model_runs_at_low_temperature(self):
+        from django.test import override_settings
+
+        with override_settings(OPENAI_API_KEY="sk-test"):
+            self.assertEqual(agent._model().temperature, agent.TEMPERATURE)
+        self.assertLessEqual(agent.TEMPERATURE, 0.3)

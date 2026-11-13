@@ -32,6 +32,11 @@ audit = logging.getLogger("vms.audit")
 # that is looping is cut off rather than allowed to spend the key.
 RECURSION_LIMIT = 16
 
+# Low, not zero. The API's default of 1.0 is for prose; here it produced stray
+# tokens inside Tetun answers ("b leading bukit"). Answers are short summaries
+# of retrieved figures, where variety is a cost, not a feature.
+TEMPERATURE = 0.2
+
 
 class AssistantNotConfigured(Exception):
     """No OPENAI_API_KEY on this server."""
@@ -106,6 +111,7 @@ def _model() -> ChatOpenAI:
         api_key=settings.OPENAI_API_KEY,
         timeout=settings.ASSISTANT_TIMEOUT_SECONDS,
         max_retries=1,
+        temperature=TEMPERATURE,
     )
 
 

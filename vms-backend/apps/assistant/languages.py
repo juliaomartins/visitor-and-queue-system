@@ -77,4 +77,31 @@ the same figures, names and dates. The glossary below does not apply.
 exactly as the tools return them; never translate them.
 - Use these terms, so the chat matches the dashboard and the printed report \
 (English | Portuguese | Tetun):
-{glossary}"""
+{glossary}
+- Mention the download button only when you called offer_download in this \
+turn; otherwise say nothing about downloading.
+- How the two harder languages should read. The figures below are an \
+illustration of style only; never quote them -- every figure comes from tools.
+  Example answer in Tetun: {_EXAMPLE_TET}
+  Example answer in Portuguese: {_EXAMPLE_PT}"""
+
+
+# Worked answers, one per language the model handles least well. Measured, not
+# guessed: with the glossary alone, gpt-4o-mini produced the right figures in a
+# Tetun answer wrapped in nonsense ("Husu no to'o tan b leading bukit") and the
+# Portuguese "registo" for "rejistu". One correct sentence to imitate does more
+# than a rule it has to interpret.
+#
+# NEITHER EXAMPLE MENTIONS A DOWNLOAD BUTTON, and that is load-bearing: an
+# earlier version ended "the button is below", and the model copied it into
+# answers that offered no file -- an invented button beside no download.
+_EXAMPLE_TET = (
+    "Iha loron 02/10/2026, **ema na’in 188 mak to’o**, husi vizitante "
+    "rejistadu 258. Oras ne’ebé ema barak liu mak to’o: 08:00. Kartaun 7 mak "
+    "rejeita iha odamatan."
+)
+_EXAMPLE_PT = (
+    "No dia 02/10/2026 chegaram **188 pessoas**, de 258 visitantes inscritos. "
+    "A hora de maior movimento foi às 08:00. Foram recusados 7 crachás à "
+    "entrada."
+)
