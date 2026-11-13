@@ -686,54 +686,94 @@ body {
   relying on an override that would be silently discarded.
 */
 
+/* The topbar button. Sized and bordered like the language and theme toggles
+   beside it, so it reads as one of the header's controls; the navy tile of
+   the mark is what sets it apart, not a louder button. */
 .assistant-launcher {
-  position: fixed;
-  right: 1rem;
-  bottom: 1rem;
-  /* Above the page and the sticky topbar (z-30), below RowContextMenu's
-     overlay (z-40) so a right-click menu is never covered by the launcher. */
-  z-index: 35;
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 0.5rem;
-  min-height: 2.75rem;
-  padding: 0 1.15rem 0 0.95rem;
-  border-radius: 999px;
-  background: var(--color-accent);
-  color: #fff;
-  font-size: 0.9rem;
+  gap: 0.45rem;
+  height: 2.25rem;
+  padding: 0 0.35rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.5rem;
+  background: var(--color-card);
+  color: var(--color-ink);
+  font-size: 0.8125rem;
   font-weight: 600;
-  box-shadow:
-    0 1px 2px color-mix(in oklab, var(--color-brand-blue) 30%, transparent),
-    0 8px 24px -8px color-mix(in oklab, var(--color-brand-blue) 55%, transparent);
-  transition: background-color 140ms ease;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+@media (min-width: 40rem) {
+  .assistant-launcher {
+    padding: 0 0.8rem 0 0.35rem;
+  }
 }
 
 .assistant-launcher:hover {
-  background: var(--color-accent-2);
+  border-color: var(--color-line-strong);
 }
 
+/* Open: the button stays lit, so it reads as the switch for the panel. */
+.assistant-launcher[aria-expanded="true"] {
+  border-color: color-mix(in oklab, var(--color-accent) 45%, var(--color-line));
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.assistant-mark {
+  flex: none;
+  display: block;
+}
+
+.assistant-mark-tile {
+  fill: var(--color-accent);
+}
+
+/* Below 1024px: a sheet over the page, full height on the right. */
 .assistant-panel {
   position: fixed;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 35;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
   display: flex;
   flex-direction: column;
-  width: min(26rem, calc(100vw - 2rem));
-  height: min(40rem, calc(100dvh - 2rem));
+  width: min(26rem, 100vw);
   overflow: hidden;
   background: var(--color-card);
-  border: 1px solid var(--color-line-strong);
-  border-radius: var(--radius-card);
-  box-shadow: 0 24px 60px -24px color-mix(in oklab, var(--color-graphite-950) 45%, transparent);
-  animation: assistant-open 160ms ease-out;
+  border-left: 1px solid var(--color-line-strong);
+  box-shadow: -24px 0 60px -30px color-mix(in oklab, var(--color-graphite-950) 50%, transparent);
+  animation: assistant-open 180ms ease-out;
+}
+
+/* From 1024px: a column of the layout. The page reflows beside it rather than
+   sitting under it, which is the whole point of asking while reading. */
+@media (min-width: 64rem) {
+  .assistant-panel {
+    position: sticky;
+    z-index: auto;
+    flex: none;
+    width: 24rem;
+    height: 100dvh;
+    box-shadow: none;
+  }
+}
+
+/* `display: flex` above is unlayered and would beat the `hidden` attribute's
+   own rule in Tailwind's base layer, so a closed panel would stay on screen. */
+.assistant-panel[hidden] {
+  display: none;
 }
 
 @keyframes assistant-open {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateX(12px);
   }
 }
 
@@ -816,11 +856,31 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* The answer is NOT a bubble: it is the record speaking, set as text against
-   a navy rule, so the eye can tell question from answer without reading. */
+/* A reply: the mark, a thread running down from it, then the text. The
+   answer is NOT a bubble -- it is the record speaking -- and the mark is what
+   tells the eye whose voice it is without reading a word. */
+.assistant-reply {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  column-gap: 0.7rem;
+}
+
+.assistant-thread {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.assistant-thread > span {
+  flex: 1;
+  width: 2px;
+  border-radius: 1px;
+  background: color-mix(in oklab, var(--color-accent) 22%, transparent);
+}
+
 .assistant-answer {
-  padding-left: 0.85rem;
-  border-left: 2px solid var(--color-accent);
+  padding-top: 0.15rem;
   font-size: 0.875rem;
   line-height: 1.6;
   color: var(--color-ink-2);
@@ -871,8 +931,14 @@ body {
 }
 
 .assistant-thinking {
+  align-self: center;
   font-size: 0.8125rem;
   color: var(--color-ink-3);
+}
+
+/* While the answer is being written, the mark breathes -- the one moving
+   thing on the panel, and only while something is actually happening. */
+.assistant-thinking-mark {
   animation: assistant-pulse 1.4s ease-in-out infinite;
 }
 
@@ -1005,7 +1071,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .assistant-panel,
-  .assistant-thinking {
+  .assistant-thinking-mark {
     animation: none;
   }
 }

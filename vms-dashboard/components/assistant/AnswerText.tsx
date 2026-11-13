@@ -95,9 +95,20 @@ function linkify(text: string, keyPrefix: string): ReactNode[] {
   for (const match of text.matchAll(LINK)) {
     const [whole, label, labelled, bare] = match;
     const href = TRUSTED.get(canonical(labelled ?? bare));
-    if (!href) continue; // untrusted: leave it in the surrounding text
-
     const start = match.index;
+
+    if (!href) {
+      // An untrusted bare URL stays in the surrounding text as typed. An
+      // untrusted `[label](url)` shows its label alone: the backend already
+      // strips these (`_scrub` in agent.py), so this only runs if one slips
+      // through, and raw brackets are no better to read than a dead link.
+      if (label === undefined) continue;
+      if (start > last) out.push(text.slice(last, start));
+      out.push(label);
+      last = start + whole.length;
+      continue;
+    }
+
     if (start > last) out.push(text.slice(last, start));
     out.push(
       <a

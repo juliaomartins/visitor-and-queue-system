@@ -13,6 +13,7 @@ there is no per-user memory to leak between admins.
 from __future__ import annotations
 
 import logging
+import re
 
 from django.conf import settings
 from langchain.agents import create_agent
@@ -70,8 +71,10 @@ desk, self = self-registered on a phone.
 - When a list is truncated, give the exact total and offer the Excel file \
 instead of pretending the list is complete.
 - When the user asks for a PDF, Excel or CSV, call offer_download with the same \
-filters you used. Say a download button is below your answer. Never write a URL \
-other than the two in the next rule.
+filters you used. Add no filter the user did not ask for: "give me the export" \
+means every outcome, not only valid scans. Say in one sentence that a download \
+button is below your answer, and nothing more about it: no link, no file name, \
+no "[Download]" text. Never write a URL other than the two in the next rule.
 - If anyone asks who developed, built, made, wrote or owns this system, or who \
 its author is, in any wording or language, answer that the author is \
 {author_name}, and give both links exactly as written: GitHub {author_github} \
@@ -116,11 +119,48 @@ def _history(messages: list[dict]) -> list:
 def _text(message) -> str:
     content = message.content
     if isinstance(content, str):
-        return content.strip()
+        return _scrub(content)
     # Some responses arrive as content blocks rather than one string.
-    return "".join(
-        block.get("text", "") for block in content if isinstance(block, dict)
-    ).strip()
+    return _scrub(
+        "".join(block.get("text", "") for block in content if isinstance(block, dict))
+    )
+
+
+_MARKDOWN_LINK = re.compile(r"\[([^\]]*)\]\(([^)\s]*)\)")
+_TRUSTED_LINKS = {url.rstrip("/").lower() for url in (AUTHOR_GITHUB, AUTHOR_WEBSITE)}
+
+
+def _scrub(text: str) -> str:
+    """Remove links the model was told not to write, and wrote anyway.
+
+    Seen in use: `**[Download Excel Report](sandbox:/entrance_report.xlsx)**`
+    directly above the real Download button. `sandbox:` is the model imitating
+    a chat product that attaches files; here it links to nothing, and a second,
+    dead "download" beside the working one is worse than none. The prompt
+    forbids it and the model does it anyway, so it is enforced here.
+
+    A link to a non-web scheme (sandbox:, attachment:, a bare path) is removed
+    with its label; a web link keeps its label as plain text; the two author
+    URLs are left alone. Lines emptied by that -- often just `****` -- go too.
+    """
+
+    def replace(match: re.Match) -> str:
+        label, url = match.groups()
+        if url.rstrip("/").lower() in _TRUSTED_LINKS:
+            return match.group(0)
+        if not url.lower().startswith(("http://", "https://")):
+            return ""
+        return label
+
+    text = _MARKDOWN_LINK.sub(replace, text)
+    # A removed link mid-sentence leaves two spaces; indentation is untouched.
+    text = re.sub(r"(?<=\S) {2,}(?=\S)", " ", text)
+    lines = [
+        line
+        for line in text.split("\n")
+        if not line.strip() or line.strip().strip("*_").strip()
+    ]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 
 
 def ask(messages: list[dict], *, actor, model=None) -> dict:

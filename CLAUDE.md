@@ -1416,11 +1416,28 @@ for the analysis that follows it.
 - **The model is `VMS_ASSISTANT_MODEL`, default `gpt-4o-mini`** — the only chat
   model the event's key could reach when this was built (`gpt-4.1-mini` was
   refused with a 403). Throttled at 20 questions a minute per admin.
-- **The popup** is `components/assistant/AssistantDock.tsx`, mounted in
-  `app/(dashboard)/layout.tsx` so it survives navigation. Non-modal: the page
-  stays usable behind it. `AnswerText` renders a small markdown subset into
-  React elements — never `innerHTML`, for the same untrusted-names reason.
-  Its top edge is one copy of `tais-strip.png`, scaled to width, never tiled.
+- **The launcher is in the topbar and the panel DOCKS — it does not float.**
+  It started as a pill fixed to the bottom-right corner, which sat on top of
+  "Register visitor" on `/dashboard`; every corner of this console is used by
+  some page. `AssistantLauncher` sits beside the clock, language and theme;
+  `AssistantPanel` is a column of `app/(dashboard)/layout.tsx` from 1024px, so
+  the page reflows beside it, and a right-hand sheet below that.
+  `assistant-context.tsx` joins the two. The panel stays mounted while closed
+  (`hidden`) so closing it keeps the conversation — and **`.assistant-panel
+  [hidden]` must stay**, because the unlayered `display: flex` beats
+  Tailwind's base-layer `[hidden]` rule and a closed panel would not close.
+- **The mark** (`AssistantMark.tsx`) is the tais key — a squared spiral turned
+  45°, the motif woven through `tais-strip.png` — white on the accent tile. It
+  heads every reply with a thread running down it, and breathes while an
+  answer is being written. A hooked lozenge was tried first and read as a "b"
+  at 20px. Never gold: gold means VIP here.
+- **Links the model invents are stripped in `agent._scrub`.** It wrote
+  `**[Download Excel Report](sandbox:/…)**` above the real button despite the
+  prompt; a non-web link goes with its label, a web link keeps only its label,
+  the two author URLs survive. `AnswerText` renders an untrusted `[label](url)`
+  as the label alone if one ever slips through, and builds React elements —
+  never `innerHTML`, for the same untrusted-names reason. The panel's top edge
+  is one copy of `tais-strip.png`, scaled to width, never tiled.
 
 **The dashboard proxies `/api` and `/media` to the backend** via rewrites in
 `next.config.ts`, so every browser request is same-origin: no preflight on the

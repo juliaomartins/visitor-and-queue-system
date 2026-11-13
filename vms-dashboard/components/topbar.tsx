@@ -1,5 +1,6 @@
 "use client";
 
+import { AssistantLauncher } from "@/components/assistant/AssistantDock";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -9,7 +10,8 @@ import { usePageMeta } from "@/components/page-meta";
 import { useFormat, useT } from "@/lib/i18n";
 
 /**
- * The page's name, its size, and the time. Nothing else.
+ * The page's name, its size, and the time -- and the controls an admin reaches
+ * for mid-task, whatever page they are on.
  *
  * A global search box and a notification bell used to sit here. Both are gone.
  * The search duplicated the one already on the visitor list a few pixels below
@@ -20,6 +22,11 @@ import { useFormat, useT } from "@/lib/i18n";
  * The clock stays because it duplicates nothing. Everything this app does is
  * measured against "doors open at nine", and a stopped clock is also the cheapest
  * possible proof that the tab has frozen.
+ *
+ * The assistant's launcher earns its place by the same test: nothing else on
+ * any page asks a question of the data. It lived in a floating pill first,
+ * which sat on top of "Register visitor" on the overview; up here it can cover
+ * nothing.
  */
 export function Topbar() {
   const { title, subtitle, count } = usePageMeta();
@@ -74,6 +81,7 @@ export function Topbar() {
         {/* Next to the clock rather than buried in a settings page: the reason
             anyone reaches for either of these is the room and the person in
             front of you, and both change during the day. */}
+        <AssistantLauncher />
         <LanguageToggle compact />
         <ThemeToggle compact />
       </div>

@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { AssistantDock } from "@/components/assistant/AssistantDock";
+import { AssistantPanel } from "@/components/assistant/AssistantDock";
+import { AssistantProvider } from "@/components/assistant/assistant-context";
 import { PageMetaProvider } from "@/components/page-meta";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
@@ -52,16 +53,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <PageMetaProvider>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar />
-          <main className="flex-1 px-4 py-5 sm:px-6 sm:py-6">{children}</main>
+      <AssistantProvider>
+        <div className="flex min-h-screen">
+          <Sidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <Topbar />
+            <main className="flex-1 px-4 py-5 sm:px-6 sm:py-6">{children}</main>
+          </div>
+          {/* A column of the layout, not an overlay: on a wide screen the page
+              reflows beside it. Here rather than in a page, so the
+              conversation survives navigation; behind the session gate above. */}
+          <AssistantPanel />
         </div>
-      </div>
-      {/* Here, not in a page: the layout persists across navigation, so the
-          conversation does too. Behind the session gate above, like the rest. */}
-      <AssistantDock />
+      </AssistantProvider>
     </PageMetaProvider>
   );
 }

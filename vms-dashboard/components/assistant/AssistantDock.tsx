@@ -1,9 +1,11 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AnswerText } from "@/components/assistant/AnswerText";
+import { AssistantMark } from "@/components/assistant/AssistantMark";
+import { useAssistant } from "@/components/assistant/assistant-context";
 import {
   askAssistant,
   downloadOffer,
@@ -16,16 +18,25 @@ import { useErrorText, useFormat, useT } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/locales";
 
 /**
- * The data assistant: a labelled launcher, and a panel that sits beside the page.
+ * The data assistant, in two halves: a launcher in the topbar, and a panel
+ * docked beside the page.
  *
- * NON-MODAL ON PURPOSE. The point is to ask "how many from Indonesia?" while
- * looking at the visitor list, so the page behind stays live and clickable —
- * no backdrop, no focus trap. Escape closes it and focus returns to the
- * launcher, which is everything a keyboard user needs from a popover.
+ * IT USED TO FLOAT, AND THAT WAS THE PROBLEM. A pill fixed to the bottom-right
+ * corner sat on top of whatever the page put there -- on /dashboard it covered
+ * "Register visitor" -- and there is no corner of this console that is never
+ * used. In the topbar it cannot cover anything, and it sits with the other
+ * controls an admin reaches for mid-task: the clock, the language, the theme.
  *
- * Mounted once in the dashboard layout, so the conversation survives moving
- * between pages; it is React state and nothing else, so it does not survive a
- * reload — see `lib/assistant.ts` for why that is the rule.
+ * THE PANEL DOCKS, IT DOES NOT OVERLAY. On a wide screen it is a column of the
+ * layout and the page reflows beside it, so the point of the thing -- asking
+ * "how many from Indonesia?" while reading the visitor list -- works with
+ * nothing hidden. Below 1024px there is no room for a column and it becomes a
+ * sheet over the page. Non-modal either way: no backdrop, no focus trap;
+ * Escape closes it and focus returns to the launcher.
+ *
+ * The panel stays mounted while closed (`hidden`), so closing it does not
+ * throw the conversation away. It is React state and nothing else, so a
+ * reload does -- see `lib/assistant.ts` for why that is the rule.
  */
 
 const SUGGESTIONS: MessageKey[] = [
@@ -35,16 +46,37 @@ const SUGGESTIONS: MessageKey[] = [
   "assistant.suggest.excel",
 ];
 
-export function AssistantDock() {
+/** The topbar button. Labelled on wide screens, the mark alone on a phone. */
+export function AssistantLauncher() {
+  const t = useT();
+  const { open, setOpen, launcherRef, panelId } = useAssistant();
+
+  return (
+    <button
+      ref={launcherRef}
+      type="button"
+      className="assistant-launcher"
+      aria-expanded={open}
+      aria-controls={panelId}
+      // Contains the visible "Ask", so speech input matching the label works.
+      aria-label={t("assistant.title")}
+      title={t("assistant.title")}
+      onClick={() => setOpen(!open)}
+    >
+      <AssistantMark size={22} />
+      <span className="hidden sm:inline">{t("assistant.launcher")}</span>
+    </button>
+  );
+}
+
+export function AssistantPanel() {
   const t = useT();
   const errorText = useErrorText();
-  const panelId = useId();
+  const { open, setOpen, launcherRef, panelId } = useAssistant();
 
-  const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [draft, setDraft] = useState("");
 
-  const launcherRef = useRef<HTMLButtonElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const logRef = useRef<HTMLDivElement | null>(null);
   const nextId = useRef(1);
@@ -89,9 +121,8 @@ export function AssistantDock() {
 
   const close = useCallback(() => {
     setOpen(false);
-    // After the panel unmounts, so the launcher exists to receive it.
-    requestAnimationFrame(() => launcherRef.current?.focus());
-  }, []);
+    launcherRef.current?.focus();
+  }, [launcherRef, setOpen]);
 
   const reset = () => {
     ask.reset();
@@ -109,7 +140,7 @@ export function AssistantDock() {
   useEffect(() => {
     const log = logRef.current;
     if (log) log.scrollTop = log.scrollHeight;
-  }, [turns, ask.isPending, ask.isError]);
+  }, [turns, ask.isPending, ask.isError, open]);
 
   // Grow the composer with its content, up to about five lines.
   useEffect(() => {
@@ -119,27 +150,10 @@ export function AssistantDock() {
     input.style.height = `${Math.min(input.scrollHeight, 132)}px`;
   }, [draft, open]);
 
-  if (!open) {
-    return (
-      <button
-        ref={launcherRef}
-        type="button"
-        className="assistant-launcher"
-        aria-expanded={false}
-        aria-controls={panelId}
-        onClick={() => setOpen(true)}
-      >
-        <IconSpark className="size-[1.15rem]" />
-        <span>{t("assistant.launcher")}</span>
-      </button>
-    );
-  }
-
   return (
-    <section
+    <aside
       id={panelId}
-      role="dialog"
-      aria-modal="false"
+      hidden={!open}
       aria-labelledby={`${panelId}-title`}
       className="assistant-panel"
       onKeyDown={(event) => {
@@ -149,16 +163,20 @@ export function AssistantDock() {
         }
       }}
     >
-      {/* One slice of the woven tais from the organisers' card. Drawn with
-          `cover`, so it is a single copy of the photograph, never a tile. */}
+      {/* One slice of the woven tais from the organisers' card. Scaled to
+          width, a single copy of the photograph, never a tile. */}
       <div aria-hidden className="assistant-seam" />
 
-      <header className="flex items-start gap-3 border-b border-line px-4 pt-3 pb-3">
+      <header className="flex items-center gap-3 border-b border-line px-4 py-3">
+        <AssistantMark size={34} />
         <div className="min-w-0 flex-1">
-          <h2 id={`${panelId}-title`} className="display text-base leading-snug text-ink">
+          <h2
+            id={`${panelId}-title`}
+            className="display text-[0.95rem] leading-snug text-ink"
+          >
             {t("assistant.title")}
           </h2>
-          <p className="mt-0.5 text-xs leading-relaxed text-ink-3">
+          <p className="mt-0.5 text-xs leading-snug text-ink-3">
             {t("assistant.subtitle")}
           </p>
         </div>
@@ -219,7 +237,7 @@ export function AssistantDock() {
           </div>
         ) : null}
 
-        <ol className="flex flex-col gap-4">
+        <ol className="flex flex-col gap-5">
           {turns.map((turn) => (
             <li key={turn.id}>
               {turn.role === "user" ? (
@@ -230,18 +248,27 @@ export function AssistantDock() {
                   </p>
                 </div>
               ) : (
-                <div className="assistant-answer">
-                  <span className="sr-only">{t("assistant.bot")}: </span>
-                  <AnswerText text={turn.content} />
-                  {turn.downloads?.length ? (
-                    <ul className="assistant-files">
-                      {turn.downloads.map((offer, index) => (
-                        <li key={index}>
-                          <FileRow offer={offer} />
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
+                <div className="assistant-reply">
+                  {/* The mark heads a thread that runs the length of the
+                      reply, so a long answer with files under it still reads
+                      as one voice. */}
+                  <div className="assistant-thread" aria-hidden>
+                    <AssistantMark size={24} />
+                    <span />
+                  </div>
+                  <div className="assistant-answer">
+                    <span className="sr-only">{t("assistant.bot")}: </span>
+                    <AnswerText text={turn.content} />
+                    {turn.downloads?.length ? (
+                      <ul className="assistant-files">
+                        {turn.downloads.map((offer, index) => (
+                          <li key={index}>
+                            <FileRow offer={offer} />
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
                 </div>
               )}
             </li>
@@ -249,9 +276,12 @@ export function AssistantDock() {
         </ol>
 
         {ask.isPending ? (
-          <p className="assistant-thinking mt-4" role="status">
-            {t("assistant.thinking")}
-          </p>
+          <div className="assistant-reply mt-5" role="status">
+            <div className="assistant-thread assistant-thinking-mark" aria-hidden>
+              <AssistantMark size={24} />
+            </div>
+            <p className="assistant-thinking">{t("assistant.thinking")}</p>
+          </div>
         ) : null}
 
         {ask.isError ? (
@@ -313,7 +343,7 @@ export function AssistantDock() {
           {t("assistant.privacy")}
         </p>
       </form>
-    </section>
+    </aside>
   );
 }
 
@@ -397,25 +427,6 @@ function FileRow({ offer }: { offer: DownloadOffer }) {
         {state === "busy" ? t("assistant.downloading") : t("assistant.download")}
       </button>
     </div>
-  );
-}
-
-function IconSpark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-      <path
-        d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.4c-.5.4-1.3 0-1.3-.6V16A2.5 2.5 0 0 1 4 13.5v-7Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M8.5 10h7M8.5 12.8h4.5"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }
 
