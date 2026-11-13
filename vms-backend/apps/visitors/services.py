@@ -231,5 +231,11 @@ def purge_visitor(visitor: Visitor, *, actor=None) -> int:
         # the cleared field back to.
         visitor.photo.delete(save=False)
 
+    # The assistant's saved chats quote names, so the name goes from there too.
+    # Imported here: apps.assistant depends on visitors, not the reverse.
+    from apps.assistant.services import redact_visitor
+
+    redact_visitor(visitor.full_name)
+
     visitor.delete()
     return orphaned
