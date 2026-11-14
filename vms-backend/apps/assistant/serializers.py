@@ -78,6 +78,12 @@ class ChatResponseSerializer(serializers.Serializer):
     remembered = serializers.ListField(child=serializers.CharField())
 
 
+class ConversationRenameSerializer(serializers.Serializer):
+    """`PATCH /assistant/conversations/{id}`: the title, and nothing else."""
+
+    title = serializers.CharField(max_length=120, trim_whitespace=True)
+
+
 class MemoryNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = MemoryNote
