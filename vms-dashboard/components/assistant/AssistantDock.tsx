@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnswerText } from "@/components/assistant/AnswerText";
 import { AssistantMark } from "@/components/assistant/AssistantMark";
 import { useAssistant } from "@/components/assistant/assistant-context";
+import { ConversationItem } from "@/components/assistant/ConversationItem";
 import { HistoryView } from "@/components/assistant/HistoryView";
 import {
   askAssistant,
@@ -19,6 +20,7 @@ import {
   type DownloadOffer,
 } from "@/lib/assistant";
 import { createSendTracker, mergeReply, newRequestId } from "@/lib/assistant-flow";
+import { useNow } from "@/lib/devices";
 import { useErrorText, useFormat, useLocale, useT } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/locales";
 
@@ -72,9 +74,11 @@ export function AssistantLauncher() {
       className="assistant-launcher"
       aria-expanded={open}
       aria-controls={panelId}
-      // Contains the visible "Ask", so speech input matching the label works.
-      aria-label={t("assistant.title")}
-      title={t("assistant.title")}
+      // "Ask AI about the event": contains the visible "Ask AI", so speech
+      // input matching the label works, and names it on phones where the
+      // label is hidden.
+      aria-label={t("assistant.launcherLabel")}
+      title={t("assistant.launcherLabel")}
       onClick={() => setOpen(!open)}
     >
       <AssistantMark size={22} />
@@ -85,6 +89,7 @@ export function AssistantLauncher() {
 
 export function AssistantPanel() {
   const t = useT();
+  const now = useNow(30_000);
   const locale = useLocale();
   const errorText = useErrorText();
   const queryClient = useQueryClient();
@@ -324,22 +329,39 @@ export function AssistantPanel() {
                 </ul>
 
                 {recent.data?.length ? (
-                  <div className="mt-6">
-                    <h3 className="assistant-section-title">{t("assistant.recent")}</h3>
-                    <ul className="mt-1.5 flex flex-col">
+                  // A group of its own, not more text under the suggestions:
+                  // these are the admin's own past chats, and each row has to
+                  // look like the thing it is -- a conversation to reopen.
+                  <section className="assistant-recents" aria-labelledby={`${panelId}-recent`}>
+                    <div className="px-3 pt-3 pb-1.5">
+                      <h3 id={`${panelId}-recent`} className="assistant-section-title">
+                        {t("assistant.recent")}
+                      </h3>
+                      <p className="mt-0.5 text-xs text-ink-3">{t("assistant.recentHint")}</p>
+                    </div>
+                    <ul>
                       {recent.data.slice(0, 3).map((item) => (
                         <li key={item.id}>
-                          <button
-                            type="button"
-                            className="assistant-recent"
-                            onClick={() => openConversation(item.id)}
-                          >
-                            {item.title || t("assistant.untitled")}
-                          </button>
+                          <ConversationItem
+                            conversation={item}
+                            variant="recent"
+                            now={now}
+                            onOpen={openConversation}
+                            // Only shown while no conversation is open, so a
+                            // deletion here has nothing in the panel to reset.
+                            onDeleted={() => undefined}
+                          />
                         </li>
                       ))}
                     </ul>
-                  </div>
+                    <button
+                      type="button"
+                      className="assistant-recents-all"
+                      onClick={() => setView("history")}
+                    >
+                      {t("assistant.viewAll")}
+                    </button>
+                  </section>
                 ) : null}
               </div>
             ) : null}
@@ -597,6 +619,8 @@ function IconClose({ className }: { className?: string }) {
     </svg>
   );
 }
+
+
 
 function IconPlus({ className }: { className?: string }) {
   return (
