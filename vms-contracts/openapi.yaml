@@ -78,6 +78,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/ConversationDetail'
           description: ''
+    patch:
+      operationId: assistant_conversations_partial_update
+      description: Changes the title shown in the assistant's history. Renaming is
+        housekeeping, not activity, so the conversation keeps its place in the list.
+      summary: Rename a conversation
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - assistant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedConversationRenameRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedConversationRenameRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedConversationRenameRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationSummary'
+          description: ''
     delete:
       operationId: assistant_conversations_destroy
       summary: Delete a conversation and its messages, for good
@@ -1970,6 +2004,15 @@ components:
           $ref: '#/components/schemas/KindEnum'
       required:
       - kind
+    PatchedConversationRenameRequest:
+      type: object
+      description: '`PATCH /assistant/conversations/{id}`: the title, and nothing
+        else.'
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
     PatchedRegistrationSettingsRequest:
       type: object
       description: The admin's view of the switch.
