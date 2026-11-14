@@ -684,8 +684,9 @@ export const en = {
   "settings.languageLabel": "Language",
 
   // ----------------------------------------------------------- assistant --
-  "assistant.launcher": "Ask",
-  "assistant.title": "Ask about the event",
+  "assistant.launcher": "Ask AI",
+  "assistant.launcherLabel": "Ask AI about the event",
+  "assistant.title": "AI assistant",
   "assistant.subtitle":
     "Answers come from the registration and entrance records.",
   "assistant.close": "Close",
@@ -695,9 +696,17 @@ export const en = {
   "assistant.historyEmpty":
     "No saved conversations yet. Every question you ask is kept here.",
   "assistant.recent": "Recent conversations",
+  "assistant.recentHint": "Pick up where you left off.",
+  "assistant.viewAll": "See all conversations",
   "assistant.untitled": "Untitled",
   "assistant.backToChat": "Back to the conversation",
   "assistant.deleteConversation": "Delete conversation",
+  "assistant.rename": "Rename",
+  "assistant.renameLabel": "Conversation name",
+  "assistant.renameFailed": "The conversation could not be renamed.",
+  "assistant.cancel": "Cancel",
+  "assistant.moreActions": "More actions",
+  "assistant.rowHint": "Right-click to rename or delete",
   "assistant.confirmDelete": "Delete for good",
   "assistant.loadFailed": "The conversation could not be loaded.",
   "assistant.memoriesTitle": "Remembered",
