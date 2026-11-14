@@ -220,3 +220,46 @@ class IdempotentChatTests(ApiTestCase):
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(r.json()["answer"]["content"], "Three.")
         self.assertEqual(ChatMessage.objects.count(), 2)
+
+
+class RenameConversationTests(ApiTestCase):
+    """Right-click > Rename in the panel: PATCH a conversation's title."""
+
+    def test_rename_own_conversation(self):
+        conv = stored(self.admin, "How many arrived?")
+
+        r = self.client.patch(f"{CONVERSATIONS}/{conv.id}", {"title": "  Day one arrivals  "}, format="json")
+
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["title"], "Day one arrivals")
+        self.assertEqual(r.json()["message_count"], 2)
+        conv.refresh_from_db()
+        self.assertEqual(conv.title, "Day one arrivals")
+
+    def test_rename_other_admins_conversation_is_404(self):
+        theirs = stored(make_admin("other"), "theirs")
+
+        r = self.client.patch(f"{CONVERSATIONS}/{theirs.id}", {"title": "mine now"}, format="json")
+
+        self.assertEqual(r.status_code, 404)
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.title, "theirs")
+
+    def test_blank_or_too_long_title_is_400(self):
+        conv = stored(self.admin, "keep")
+        for title in ("   ", "x" * 121):
+            with self.subTest(length=len(title)):
+                r = self.client.patch(f"{CONVERSATIONS}/{conv.id}", {"title": title}, format="json")
+                self.assertEqual(r.status_code, 400)
+        conv.refresh_from_db()
+        self.assertEqual(conv.title, "keep")
+
+    def test_rename_does_not_reorder_history(self):
+        # Renaming is housekeeping, not activity: the list stays in the order
+        # the conversations were last used.
+        conv = stored(self.admin, "old")
+        before = Conversation.objects.get(pk=conv.pk).updated_at
+
+        self.client.patch(f"{CONVERSATIONS}/{conv.id}", {"title": "renamed"}, format="json")
+
+        self.assertEqual(Conversation.objects.get(pk=conv.pk).updated_at, before)
