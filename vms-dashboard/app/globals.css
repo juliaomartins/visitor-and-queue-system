@@ -1099,67 +1099,6 @@ body {
   border-bottom: 1px solid var(--color-line);
 }
 
-.assistant-history-open {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.6rem 0.25rem;
-  text-align: left;
-  border-radius: 0.5rem;
-}
-
-.assistant-history-open:hover .assistant-history-title {
-  color: var(--color-accent);
-}
-
-/* The conversation that is open in the chat view. */
-.assistant-history-open[aria-current="true"] .assistant-history-title {
-  color: var(--color-accent);
-}
-
-.assistant-history-title {
-  overflow: hidden;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-ink);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.assistant-history-meta {
-  font-size: 0.75rem;
-  color: var(--color-ink-3);
-}
-
-.assistant-history-delete {
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  min-width: 2rem;
-  height: 2rem;
-  padding: 0 0.45rem;
-  border-radius: 0.55rem;
-  color: var(--color-ink-3);
-  font-size: 0.75rem;
-  font-weight: 600;
-  transition:
-    background-color 140ms ease,
-    color 140ms ease;
-}
-
-.assistant-history-delete:hover:not(:disabled) {
-  background: var(--color-revoked-soft);
-  color: var(--color-revoked);
-}
-
-/* Second click deletes for good, so the button says so in words and in red. */
-.assistant-history-delete.is-confirming {
-  background: var(--color-revoked);
-  color: #fff;
-}
-
 .assistant-memory-row {
   display: flex;
   align-items: center;
@@ -1170,21 +1109,51 @@ body {
   background: var(--color-card-2);
 }
 
-.assistant-recent {
-  display: block;
-  width: 100%;
+/* Recent conversations: one bordered group, so it reads as "your chats" and
+   not as more suggestions. Each row is shaped like the thing it opens -- an
+   icon, the conversation's title, when it happened, and a chevron that says
+   "this goes somewhere". It used to be bare text under a rule, which nobody
+   took for a button. */
+.assistant-recents {
+  margin-top: 1.5rem;
   overflow: hidden;
-  padding: 0.4rem 0;
-  font-size: 0.8125rem;
-  color: var(--color-ink-2);
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border-bottom: 1px solid var(--color-line);
+  border: 1px solid var(--color-line);
+  border-radius: 0.8rem;
+  background: var(--color-card-2);
 }
 
-.assistant-recent:hover {
+.assistant-recent-icon {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
   color: var(--color-accent);
+}
+
+.assistant-recent-chevron {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  color: var(--color-ink-3);
+  transition: color 140ms ease;
+}
+
+.assistant-recent:hover .assistant-recent-chevron {
+  color: var(--color-accent);
+}
+
+.assistant-recents-all {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border-top: 1px solid var(--color-line);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-align: left;
+}
+
+.assistant-recents-all:hover {
+  background: var(--color-accent-soft);
 }
 
 /* Under an answer that saved a note: quiet confirmation, not a banner. */
@@ -1194,4 +1163,139 @@ body {
   border-left: 2px solid var(--color-accent);
   font-size: 0.75rem;
   color: var(--color-ink-3);
+}
+
+/* ------------------------------------------- assistant: conversation row -- */
+
+/*
+  One saved conversation (components/assistant/ConversationItem.tsx), used by
+  the recent three and by History. Right-click opens Rename / Delete; History
+  rows also carry a visible "More actions" button for touch screens.
+*/
+.assistant-convo {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.assistant-convo.is-recent {
+  border-top: 1px solid var(--color-line);
+}
+
+.assistant-convo-open {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.65rem;
+  text-align: left;
+  transition: background-color 140ms ease;
+}
+
+.is-recent .assistant-convo-open {
+  padding: 0.6rem 0.75rem;
+}
+
+.is-recent .assistant-convo-open:hover {
+  background: var(--color-accent-soft);
+}
+
+.is-history .assistant-convo-open {
+  padding: 0.6rem 0.25rem;
+  border-radius: 0.5rem;
+}
+
+.assistant-convo-title {
+  display: block;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.is-history .assistant-convo-title {
+  font-size: 0.875rem;
+}
+
+.assistant-convo-open:hover .assistant-convo-title,
+.assistant-convo-open[aria-current="true"] .assistant-convo-title {
+  color: var(--color-accent);
+}
+
+.assistant-convo-meta {
+  display: block;
+  margin-top: 0.05rem;
+  font-size: 0.7rem;
+  color: var(--color-ink-3);
+}
+
+.assistant-convo-more {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  color: var(--color-ink-3);
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.assistant-convo-more:hover {
+  background: var(--color-card-2);
+  color: var(--color-ink);
+}
+
+/* Renaming: the row becomes its own text field, same size as the title. */
+.assistant-convo.is-editing {
+  padding: 0.4rem 0.5rem;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.assistant-convo-input {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.5rem;
+  background: var(--color-card);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-ink);
+}
+
+.assistant-convo-input:focus-visible {
+  outline: none;
+}
+
+/* Deleting: asked again in the row, in words and in red -- it cannot be undone. */
+.assistant-convo.is-confirming {
+  gap: 0.4rem;
+  padding: 0.45rem 0.5rem 0.45rem 0.75rem;
+  background: var(--color-revoked-soft);
+}
+
+.assistant-convo-cancel,
+.assistant-convo-delete {
+  flex: none;
+  min-height: 1.9rem;
+  padding: 0 0.65rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.assistant-convo-cancel {
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-card);
+  color: var(--color-ink-2);
+}
+
+.assistant-convo-delete {
+  background: var(--color-revoked);
+  color: #fff;
 }
