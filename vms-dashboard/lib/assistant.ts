@@ -170,6 +170,21 @@ export async function deleteConversation(id: string): Promise<void> {
   if (!response.ok) keyed("assistant.error.unexpected");
 }
 
+/** Rename a conversation. The server trims it and keeps the list's order. */
+export async function renameConversation(
+  id: string,
+  title: string,
+): Promise<ConversationSummary> {
+  await ensureAccessToken();
+  const { data, error, response } = await api.PATCH(
+    "/api/v1/assistant/conversations/{id}",
+    { params: { path: { id } }, body: { title } },
+  );
+  if (data) return data;
+  if (response.status === 404) notFound(error);
+  keyed("assistant.renameFailed");
+}
+
 export async function deleteMemory(id: string): Promise<void> {
   await ensureAccessToken();
   const { error, response } = await api.DELETE("/api/v1/assistant/memories/{id}", {
