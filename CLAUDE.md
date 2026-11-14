@@ -499,6 +499,7 @@ POST   /api/v1/assistant/chat                ask the data assistant [admin, thro
 GET    /api/v1/assistant/status              is a key configured?  [admin]
 GET    /api/v1/assistant/conversations       this admin's chats    [admin]
 GET    /api/v1/assistant/conversations/{id}  one chat + messages   [admin, own only]
+PATCH  /api/v1/assistant/conversations/{id}  rename a chat         [admin, own only]
 DELETE /api/v1/assistant/conversations/{id}  delete a chat         [admin, own only]
 GET    /api/v1/assistant/memories            remembered notes      [admin]
 DELETE /api/v1/assistant/memories/{id}       forget one            [admin, own only]
@@ -1482,11 +1483,29 @@ for the analysis that follows it.
   (`hidden`) so closing it keeps the conversation — and **`.assistant-panel
   [hidden]` must stay**, because the unlayered `display: flex` beats
   Tailwind's base-layer `[hidden]` rule and a closed panel would not close.
-- **The mark** (`AssistantMark.tsx`) is the tais key — a squared spiral turned
-  45°, the motif woven through `tais-strip.png` — white on the accent tile. It
-  heads every reply with a thread running down it, and breathes while an
-  answer is being written. A hooked lozenge was tried first and read as a "b"
-  at 20px. Never gold: gold means VIP here.
+- **The mark** (`AssistantMark.tsx`) is a speech bubble with two sparkles,
+  white on the accent tile — chosen to be *recognised*, on the owner's
+  instruction, over being original. It was the tais key (a squared spiral
+  from `tais-strip.png`) and admins did not read it as "the AI" or as
+  something to click. The launcher's label went from "Ask" to **"Ask AI"**
+  and the panel's title to **"AI assistant"** for the same reason. The mark
+  heads every reply with a thread running down it and breathes while an
+  answer is being written; its sparkles use the tile's class, so it follows
+  the theme. Never gold: gold means VIP here.
+- **Recent conversations** in the empty state are one bordered group of rows
+  — chat icon, title, relative time, chevron — with "See all conversations"
+  opening History. They were bare text under a rule, and nobody took them for
+  something to click.
+- **Right-click a conversation to rename or delete it** — the recent three and
+  every History row are one component, `ConversationItem.tsx`, using the
+  visitor list's own `RowContextMenu` (Menu key / Shift+F10 anchor to the
+  row). History rows also carry a "More actions" button, because a touch
+  screen has no right-click. Rename edits in place (Enter or blur saves,
+  Escape cancels; a `settled` ref stops the unmount blur from saving a
+  cancelled edit or sending it twice). Delete asks again in the row with
+  focus on **Cancel**, never on the destructive button. The rename route
+  saves with `update_fields=["title"]` so `auto_now` does not move a renamed
+  conversation to the top of the list — renaming is housekeeping, not use.
 - **Links the model invents are stripped in `agent._scrub`.** It wrote
   `**[Download Excel Report](sandbox:/…)**` above the real button despite the
   prompt; a non-web link goes with its label, a web link keeps only its label,
