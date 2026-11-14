@@ -714,8 +714,9 @@ export const pt: Messages = {
   "settings.languageLabel": "Idioma",
 
   // ----------------------------------------------------------- assistant --
-  "assistant.launcher": "Perguntar",
-  "assistant.title": "Perguntar sobre o evento",
+  "assistant.launcher": "Perguntar \u00e0 IA",
+  "assistant.launcherLabel": "Perguntar \u00e0 IA sobre o evento",
+  "assistant.title": "Assistente de IA",
   "assistant.subtitle":
     "As respostas v\u00eam dos registos de inscri\u00e7\u00e3o e de entrada.",
   "assistant.close": "Fechar",
@@ -725,9 +726,19 @@ export const pt: Messages = {
   "assistant.historyEmpty":
     "Ainda n\u00e3o h\u00e1 conversas guardadas. Cada pergunta que fizer fica aqui.",
   "assistant.recent": "Conversas recentes",
+  "assistant.recentHint": "Continue onde ficou.",
+  "assistant.viewAll": "Ver todas as conversas",
   "assistant.untitled": "Sem t\u00edtulo",
   "assistant.backToChat": "Voltar \u00e0 conversa",
   "assistant.deleteConversation": "Eliminar conversa",
+  "assistant.rename": "Mudar o nome",
+  "assistant.renameLabel": "Nome da conversa",
+  "assistant.renameFailed":
+    "N\u00e3o foi poss\u00edvel mudar o nome da conversa.",
+  "assistant.cancel": "Cancelar",
+  "assistant.moreActions": "Mais a\u00e7\u00f5es",
+  "assistant.rowHint":
+    "Clique com o bot\u00e3o direito para mudar o nome ou eliminar",
   "assistant.confirmDelete": "Eliminar definitivamente",
   "assistant.loadFailed": "N\u00e3o foi poss\u00edvel carregar a conversa.",
   "assistant.memoriesTitle": "Memorizado",
