@@ -1,18 +1,18 @@
 /**
- * The assistant's mark: the tais key, a squared spiral, on a navy tile.
+ * The assistant's mark: a speech bubble with two sparkles, on a navy tile.
  *
- * The spiral that winds inward is the motif woven through the tais strip the
- * printed card ends in (and the panel's top edge), so the assistant wears the
- * event's own cloth rather than the stock sparkle or robot face every chat
- * widget carries. White on the console's navy; never gold, which on this
- * console means VIP.
+ * RECOGNISABLE BEATS ORIGINAL HERE, on the owner's instruction. The first mark
+ * was the tais key -- a squared spiral from the woven strip -- and it was
+ * distinctive and meant nothing to the person looking for "the AI": admins did
+ * not read it as something to click. A chat bubble says "conversation" and the
+ * sparkles say "AI" in the vocabulary every product now shares, so the mark is
+ * understood before the label is read. The tais stays where it is understood
+ * as cloth: the panel's top edge.
  *
- * Drawn upright as a square spiral and turned 45 degrees, which is how the
- * weave sets it. Two turns and no more: a third closes up below 24px. A
- * hooked lozenge was tried first and read as a "b" at small sizes.
- *
- * Drawn, not shipped as a file, like every icon in this dashboard: it takes
- * the theme's accent and stays sharp at any pixel ratio.
+ * The sparkles are cut out in the tile's own colour (`assistant-mark-tile`),
+ * so the mark follows the theme's accent in light and dark. Never gold: gold
+ * means VIP on this console. Measured at 112, 34, 24 and 22px; the second
+ * sparkle is what keeps it from reading as a plain "new message" badge.
  */
 export function AssistantMark({
   size = 28,
@@ -31,13 +31,16 @@ export function AssistantMark({
     >
       <rect width="32" height="32" rx="9" className="assistant-mark-tile" />
       <path
-        d="M10 22V10h12v9h-8v-5h4.5v2.2"
-        transform="rotate(45 16 16)"
-        fill="none"
-        stroke="#fff"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M9.5 8.5h13a3.2 3.2 0 0 1 3.2 3.2v7.3a3.2 3.2 0 0 1-3.2 3.2h-6l-4.6 3.6v-3.6h-2.4A3.2 3.2 0 0 1 6.3 19v-7.3a3.2 3.2 0 0 1 3.2-3.2Z"
+        fill="#fff"
+      />
+      <path
+        d="M14.6 10.6c.45 2.2 1.55 3.3 3.75 3.75-2.2.45-3.3 1.55-3.75 3.75-.45-2.2-1.55-3.3-3.75-3.75 2.2-.45 3.3-1.55 3.75-3.75Z"
+        className="assistant-mark-tile"
+      />
+      <path
+        d="M20.4 15.2c.2.95.65 1.4 1.6 1.6-.95.2-1.4.65-1.6 1.6-.2-.95-.65-1.4-1.6-1.6.95-.2 1.4-.65 1.6-1.6Z"
+        className="assistant-mark-tile"
       />
     </svg>
   );
