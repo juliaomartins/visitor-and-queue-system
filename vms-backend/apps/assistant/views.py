@@ -27,6 +27,7 @@ from .serializers import (
     ChatRequestSerializer,
     ChatResponseSerializer,
     ConversationDetailSerializer,
+    ConversationRenameSerializer,
     ConversationSummarySerializer,
     MemoryNoteSerializer,
 )
@@ -222,6 +223,29 @@ class ConversationDetailView(APIView):
     )
     def get(self, request, pk):
         return Response(ConversationDetailSerializer(self._get(request, pk)).data)
+
+    @extend_schema(
+        operation_id="assistant_conversations_partial_update",
+        summary="Rename a conversation",
+        description=(
+            "Changes the title shown in the assistant's history. Renaming is "
+            "housekeeping, not activity, so the conversation keeps its place in "
+            "the list."
+        ),
+        request=ConversationRenameSerializer,
+        responses={200: ConversationSummarySerializer},
+        tags=["assistant"],
+    )
+    def patch(self, request, pk):
+        conversation = self._get(request, pk)
+        payload = ConversationRenameSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+
+        conversation.title = payload.validated_data["title"]
+        # `update_fields` keeps `auto_now` from bumping updated_at, which would
+        # move a renamed conversation to the top as if it had just been used.
+        conversation.save(update_fields=["title"])
+        return Response(ConversationSummarySerializer(conversation).data)
 
     @extend_schema(
         operation_id="assistant_conversations_destroy",
