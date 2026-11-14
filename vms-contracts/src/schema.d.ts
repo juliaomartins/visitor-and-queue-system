@@ -62,7 +62,11 @@ export interface paths {
         delete: operations["assistant_conversations_destroy"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename a conversation
+         * @description Changes the title shown in the assistant's history. Renaming is housekeeping, not activity, so the conversation keeps its place in the list.
+         */
+        patch: operations["assistant_conversations_partial_update"];
         trace?: never;
     };
     "/api/v1/assistant/memories": {
@@ -1064,6 +1068,10 @@ export interface components {
         PairingCodeRequest: {
             kind: components["schemas"]["KindEnum"];
         };
+        /** @description `PATCH /assistant/conversations/{id}`: the title, and nothing else. */
+        PatchedConversationRenameRequest: {
+            title?: string;
+        };
         /** @description The admin's view of the switch. */
         PatchedRegistrationSettingsRequest: {
             public_registration_enabled?: boolean;
@@ -1571,6 +1579,33 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    assistant_conversations_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedConversationRenameRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedConversationRenameRequest"];
+                "multipart/form-data": components["schemas"]["PatchedConversationRenameRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummary"];
+                };
             };
         };
     };
